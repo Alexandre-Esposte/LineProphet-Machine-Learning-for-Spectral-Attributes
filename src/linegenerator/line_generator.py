@@ -27,7 +27,7 @@ def voigt_profile_generator():
 
     fl = 2 * gamma
     fg = 2 * sigma * np.sqrt(2 * np.log(2))
-    fwhm = 0.5346*fl + np.sqrt(0.21666*fl**2+ fg**2)
+    fwhm = 0.5346*fl + np.sqrt(0.2166*fl**2 + fg**2)
 
     intensity_factor = np.random.uniform(0,10)
     center = np.random.uniform(1000,50000+1)

@@ -1,8 +1,8 @@
-from line_generator import voigt_profile_generator
+from .line_generator import voigt_profile_generator
 import pandas as pd
 
 
-def database_generator(samples: int):
+def database_generator(samples: int, path: str):
 
     db = {'sigma':[],'gamma':[],'fwhm':[],'wv_mean':[],'wv_std':[], 'int_mean':[],'int_std':[],'int_max':[]}
     for _ in range(samples):
@@ -19,9 +19,9 @@ def database_generator(samples: int):
         db['int_max'].append(profile['statistics']['int_max'])
 
     db = pd.DataFrame(db)
-    db.to_csv('././database/line_profiles.csv',index=None)
+    db.to_csv(path,index=None)
 
 
 if __name__ == "__main__":
-    database_generator(1000)
+    database_generator(10)
     print('Done')
