@@ -19,8 +19,8 @@ def statistics_calculus(wavenumbers, intensities):
 def voigt_profile_generator():
     """Gera um perfil voigt através de parâmetros aleatórios"""
 
-    sigma = np.random.uniform(0,10)
-    gamma = np.random.uniform(0,10)
+    sigma = np.random.uniform(0,2)
+    gamma = np.random.uniform(0,2)
 
     fator = (sigma+gamma)/2
     #fator = (2*sigma*gamma)/(sigma+gamma)
@@ -41,8 +41,8 @@ def voigt_profile_generator():
 
     #print(f"\nsigma: {sigma}\ngamma: {gamma}\ncenter: {center}\nintensity: {intensity_factor}\nfwhm: {fwhm}\ndata: {data}")
 
-    plt.plot(x,y)
-    plt.show()
+    #plt.plot(x,y)
+    #plt.show()
 
     return {'sigma':sigma,'gamma':gamma,'center':center,'intensity_factor':intensity_factor,'fwhm':fwhm,'statistics':statistics}
 
