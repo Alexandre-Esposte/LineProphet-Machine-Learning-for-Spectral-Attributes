@@ -1,32 +1,41 @@
 from hapi import *
-import matplotlib.pyplot as plt
 import matplotlib as mpl
+import matplotlib.pyplot as plt
+import traceback
+import os
+
+
 
 class SpectraGenerator():
 
     def __init__(self):
 
-        db_begin('hitran_database')
+        
+        print("Inicializando")
 
-        self.wavenumbers = 0
-        self.absorption = 0
+        print('Base de dados hitran já existe') if "SpectraGenerator/hitran_database" in os.listdir() else db_begin('SpectraGenerator/hitran_database')
+
+        
+        self.spectra = {'wavenumbers':0, 'absorption':0}
+
 
         mpl.rcParams['axes.spines.right'] = False
         mpl.rcParams['axes.spines.top'] = False
 
         mpl.rcParams['figure.figsize'] = (12,6)
 
-
+       
 
     def downloadMolecule(self,moleculeName: str, isotopologues: tuple, wavenumberRange: tuple):
 
         try:
-            fetch_by_ids(moleculeName,isotopologues, wavenumberRange[0], wavenumberRange[1], ParameterGroups=['160-char','Voigt_Air','Voigt_Self','All'])
+            fetch_by_ids(moleculeName,isotopologues, wavenumberRange[0], wavenumberRange[1], ParameterGroups=['160-char','Voigt_Air','Voigt_Self'])
 
-        except Exception as err:
-            print(err)
+        except:
+            traceback.print_exc()
+            
 
-    def simulateSpectra(self,moleculeName: str, diluent: dict, enviroment: dict, step: float):
+    def simulateSpectra(self,moleculeName: str, diluent: dict, enviroment: dict, step: float = 0.001):
 
 
         try: 
@@ -37,34 +46,25 @@ class SpectraGenerator():
                                                                       WavenumberStep = step,
                                                                       WavenumberWing = 50)
             
-            self.wavenumbers , self.absorption = absorptionSpectrum(wavenumbers,
-                                                          absorptioncoef,
-                                                          Environment = enviroment)
+            self.spectra['wavenumbers'], self.spectra['absorption'] = absorptionSpectrum(wavenumbers,
+                                                                                         absorptioncoef,
+                                                                                         Environment = enviroment)
             
             
-        except Exception as err:
+        except:
             self.wavenumbers = 0
             self.absorption = 0
-            print(err)
-
-    def convolveSpectrum(self, resolution: float, af_wing: float):
-
-        try:
-            self.wavenumbers, self.absorption, i1,i2,slit = convolveSpectrum(self.wavenumbers,
-                                                                             self.absorption,
-                                                                             SlitFunction = SLIT_RECTANGULAR,
-                                                                             Resolution= resolution,
-                                                                             AF_wing= af_wing)
-        except Exception as err:
-            print(err)
+            traceback.print_exc()
 
 
     def plot(self):
 
         try: 
-            plt.plot(self.wavenumbers,self.absorption)
+            plt.plot(self.spectra['wavenumbers'],self.spectra['absorption'])
             plt.xlabel('Wavenumber (cm⁻¹)')
             plt.ylabel('Absorption (A.U)' )
+            plt.show()
+            
 
-        except Exception as err:
-            print(err)
+        except:
+            traceback.print_exc()
