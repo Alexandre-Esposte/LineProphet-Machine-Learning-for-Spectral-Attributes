@@ -3,6 +3,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import traceback
 import os
+from typing import Tuple, Dict
 
 
 
@@ -26,7 +27,7 @@ class SpectraGenerator():
 
        
 
-    def downloadMolecule(self,moleculeName: str, isotopologues: tuple, wavenumberRange: tuple):
+    def downloadMolecule(self,moleculeName: str, isotopologues: Tuple[int], wavenumberRange: Tuple[int,int]) -> None:
 
         try:
             fetch_by_ids(moleculeName,isotopologues, wavenumberRange[0], wavenumberRange[1], ParameterGroups=['160-char','Voigt_Air','Voigt_Self'])
@@ -35,7 +36,7 @@ class SpectraGenerator():
             traceback.print_exc()
             
 
-    def simulateSpectra(self,moleculeName: str, diluent: dict, enviroment: dict, step: float = 0.001):
+    def simulateSpectra(self,moleculeName: str, diluent: Dict[str, float], enviroment: Dict[str, float], step: float = 0.001) -> None:
 
 
         try: 
@@ -57,7 +58,7 @@ class SpectraGenerator():
             traceback.print_exc()
 
 
-    def plot(self):
+    def plot(self) -> None:
 
         try: 
             plt.plot(self.spectra['wavenumbers'],self.spectra['absorption'])
