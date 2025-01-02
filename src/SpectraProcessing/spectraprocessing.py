@@ -9,9 +9,9 @@ import seaborn as sns
 
 def transitionClassification(lines: pd.DataFrame) -> pd.DataFrame:
 
-    pbranch = lines.query('branch == "P"').sort_values(by='center', ascending=False)
+    pbranch = lines.query('branch == "P"').sort_values(by='wavenumber', ascending=False)
 
-    rbranch = lines.query('branch == "R"').sort_values(by='center',ascending= True)
+    rbranch = lines.query('branch == "R"').sort_values(by='wavenumber',ascending= True)
 
 
     pbranch['j'] = [i+1 for i in range(pbranch.shape[0])]
@@ -22,7 +22,7 @@ def transitionClassification(lines: pd.DataFrame) -> pd.DataFrame:
 
     lines = pd.concat([pbranch,rbranch])
 
-    return lines.sort_values(by='center')
+    return lines.sort_values(by='wavenumber')
 
 
 def branchClassification(spectra: Dict[str,float] , thresoldBranch: float, findPeaksParams: Dict[str, float]) -> pd.DataFrame:
@@ -31,11 +31,11 @@ def branchClassification(spectra: Dict[str,float] , thresoldBranch: float, findP
 
     peaks, _ = find_peaks(spectra['absorption'],height=0.01)
 
-    lines['center'] = spectra['wavenumbers'][peaks]
+    lines['wavenumber'] = spectra['wavenumbers'][peaks]
 
-    lines['intensity'] = spectra['absorption'][peaks]
+    lines['absorption'] = spectra['absorption'][peaks]
 
-    lines['branch'] = np.where(lines['center'] > thresoldBranch, 'R','P')
+    lines['branch'] = np.where(lines['wavenumber'] > thresoldBranch, 'R','P')
 
     lines = transitionClassification(lines)
 
@@ -45,11 +45,11 @@ def branchClassification(spectra: Dict[str,float] , thresoldBranch: float, findP
 def plotSpectrum(real: Dict[str,float], lines: pd.DataFrame) -> None:
 
     plt.plot(real['wavenumbers'],real['absorption'])
-    sns.scatterplot(x=lines['center'],y=lines['intensity'],hue=lines['branch'])
+    sns.scatterplot(x=lines['wavenumber'],y=lines['absorption'],hue=lines['branch'])
 
 
     for _,line in lines.iterrows():
-        plt.text(x= line['center'] - 5, y= line['intensity']+0.02, s= f"{line['branch']}({line['j']})", fontsize=8)
+        plt.text(x= line['wavenumber'], y= line['absorption'] + 0.05, s= f"{line['branch']}({line['j']})", fontsize=8)
 
     plt.xlabel('Wavenumber (cm⁻¹)')
     plt.ylabel('Absorption (A.U)' )
