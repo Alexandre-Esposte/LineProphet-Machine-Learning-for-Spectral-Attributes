@@ -185,7 +185,7 @@ def multipleLineFit(spectra: Dict[str, float], lines: pd.DataFrame, linepercenta
 
         results = pd.concat([results, pd.DataFrame({key: [value] for key, value in params.items()})], axis=0)
 
-        print(f"{line['branch']}({line['j']}) -> {result.rsquared}")
+        print(f"{line['branch']}({line['j']}), {line['temperature']}K, {line['pressure']}atm -> {result.rsquared}")
 
       
 

@@ -29,7 +29,7 @@ def branchClassification(spectra: Dict[str,float] , thresoldBranch: float, findP
 
     lines = pd.DataFrame()
 
-    peaks, _ = find_peaks(spectra['absorption'],height=0.01)
+    peaks, _ = find_peaks(spectra['absorption'],height=0.01,width = 5 )
 
     lines['wavenumber'] = spectra['wavenumbers'][peaks]
 
