@@ -4,13 +4,14 @@ from SpectraFit.spectrafit import multipleLineFit
 
 import pandas as pd
 from multiprocessing import Pool
+import os
 
 
 def process_temperature_pressure(args):
     """Função para simular espectro e ajustar linhas para uma combinação de temperatura e pressão."""
     temperature, pressure, optical_length = args
     s = SpectraGenerator()
-    print(f'-----------Fitting for {temperature}K and {pressure} atm-----------')
+    print(f'-----------Fitting for {temperature}K and {pressure} atm, process: {os.getpid()}-----------')
     
     # Simulando o espectro
     s.simulateSpectra('H35Cl', {'air': 0, 'self': 1}, {'l': optical_length, 'p': pressure, 'T': temperature})
@@ -29,8 +30,10 @@ def process_temperature_pressure(args):
 
 def main():
     # Lista de temperaturas e pressões
+    
     temperatures = [295, 300, 315, 350, 373]  # Kelvin
     pressures = [0.2, 0.4, 0.6, 0.8, 1]  # atm
+
     optical_length = 10  # cm
 
     print(f"Temperatures (K): {temperatures}\nPressures (atm): {pressures}\n\n")

@@ -1,9 +1,16 @@
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 from lmfit import minimize, Parameters , Minimizer, report_fit
 from lmfit.models import *
 from lmfit.model import ModelResult
+from functools import partial
+import optuna
+from optuna.trial import Trial
+
+
+optuna.logging.set_verbosity(optuna.logging.WARNING)
+
 
 
 def filterLine(spectra: Dict[str, float], linecenter: float, lineintensity: float, intensidade_relativa: float) -> Tuple[List[float], List[float]]:
@@ -169,7 +176,6 @@ def singleLineFit(data, ex, chute_centro: float, chute_sigma: float, chute_gamma
     return final, result, params, successful
 
 
-
 def multipleLineFit(spectra: Dict[str, float], lines: pd.DataFrame, linepercentage: float = 0.01) -> pd.DataFrame:
 
     results = pd.DataFrame()
@@ -183,10 +189,47 @@ def multipleLineFit(spectra: Dict[str, float], lines: pd.DataFrame, linepercenta
         chute= 8e-3
         final, result, params, successful = singleLineFit(yfilterline, xfilterline, center, chute, chute, vgamma = True, vsigma = True)
 
+        # se r² for menor que 0.99, será efetuado uma busca pelo chute inicial ótimo para melhorar o ajuste
+        if result.rsquared < 0.99:
+            print(f"{line['branch']}({line['j']}), {line['temperature']}K, {line['pressure']}atm -> {result.rsquared}-------> R² insuficiente, habilitando o optuna")
+            best_params , best_value = optimize(xfilterline, yfilterline, center)
+            chute = best_params['chute']
+            final, result, params, successful = singleLineFit(yfilterline, xfilterline, center, chute, chute, vgamma = True, vsigma = True)
+
+            print(f"{line['branch']}({line['j']}), {line['temperature']}K, {line['pressure']}atm -> {result.rsquared}-------> Melhor R² após o optuna")
+
+        else:
+            print(f"{line['branch']}({line['j']}), {line['temperature']}K, {line['pressure']}atm -> {result.rsquared}")
+
+        
         results = pd.concat([results, pd.DataFrame({key: [value] for key, value in params.items()})], axis=0)
 
-        print(f"{line['branch']}({line['j']}), {line['temperature']}K, {line['pressure']}atm -> {result.rsquared}")
-
-      
-
     return results.reset_index(drop=True)
+
+
+def objective(trial: Trial, xfilterline: List[float], yfilterline: List[float], center: float, **kwargs: Dict[str, Any]) -> float:
+    
+    # Sugere um valor para o chute inicial
+    chute = trial.suggest_float('chute', 0.0001, 1)
+
+    # Executa o ajuste com os parâmetros fornecidos
+    final, result, params, successful = singleLineFit(yfilterline, xfilterline, center, chute, chute, vgamma=True, vsigma=True)
+
+    # Retorna o r² como métrica para o otimizador
+    return 1 - result.rsquared  # Minimizar a diferença para o melhor ajuste (r² = 1)
+
+# Exemplo de como usar
+def optimize(xfilterline: List[float], yfilterline: List[float], center: float) -> Tuple[Dict[str, float], float]:
+    
+    # Define a função objetivo com parâmetros fixos
+    objective_partial = partial(objective, xfilterline=xfilterline, yfilterline=yfilterline, center=center)
+
+    # Configura o estudo do Optuna
+    study = optuna.create_study(direction='minimize')
+    study.optimize(objective_partial, n_trials=500)
+
+    # Resultado do melhor ajuste
+    best_params = study.best_params
+    best_value = study.best_value
+
+    return best_params, best_value
