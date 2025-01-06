@@ -192,7 +192,7 @@ def multipleLineFit(spectra: Dict[str, float], lines: pd.DataFrame, linepercenta
             best_params , best_value = optimize(xfilterline, yfilterline, center)
             chute_sigma = best_params['chute_sigma']
             chute_gamma = best_params['chute_gamma']
-            final, result, params, successful = singleLineFit(yfilterline, xfilterline, center, chute, chute, vgamma = True, vsigma = True)
+            final, result, params, successful = singleLineFit(yfilterline, xfilterline, center, chute_sigma, chute_gamma, vgamma = True, vsigma = True)
 
             print(f"{line['branch']}({line['j']}), {line['temperature']}K, {line['pressure']}atm -> {result.rsquared}-------> Melhor R² após o optuna")
 
@@ -209,7 +209,7 @@ def objective(trial: Trial, xfilterline: List[float], yfilterline: List[float], 
     
     # Sugere um valor para o chute inicial
     chute_sigma = trial.suggest_float('chute_sigma', 0.000001, 1)
-    chute_gamma = trial.suggest_float('chute_gamma', 0.000001),1
+    chute_gamma = trial.suggest_float('chute_gamma', 0.000001, 1)
 
     # Executa o ajuste com os parâmetros fornecidos
     final, result, params, successful = singleLineFit(yfilterline, xfilterline, center, chute_sigma, chute_gamma, vgamma=True, vsigma=True)
