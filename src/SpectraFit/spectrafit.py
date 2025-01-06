@@ -146,10 +146,7 @@ def singleLineFit(data, ex, chute_centro: float, chute_sigma: float, chute_gamma
     ex = np.array(ex)
 
     successful = True
-
-    #print(f"data: {type(data)}, ex: {type(ex)}, chute_centro: {type(chute_centro)}, chute_sigma: {type(chute_sigma)}, chute_gama: {type(chute_gamma)}")
-
-     
+ 
     modelo = VoigtModel()
     pars = modelo.guess(data, x=ex)
  
@@ -193,7 +190,8 @@ def multipleLineFit(spectra: Dict[str, float], lines: pd.DataFrame, linepercenta
         if result.rsquared < 0.99:
             print(f"{line['branch']}({line['j']}), {line['temperature']}K, {line['pressure']}atm -> {result.rsquared}-------> R² insuficiente, habilitando o optuna")
             best_params , best_value = optimize(xfilterline, yfilterline, center)
-            chute = best_params['chute']
+            chute_sigma = best_params['chute_sigma']
+            chute_gamma = best_params['chute_gamma']
             final, result, params, successful = singleLineFit(yfilterline, xfilterline, center, chute, chute, vgamma = True, vsigma = True)
 
             print(f"{line['branch']}({line['j']}), {line['temperature']}K, {line['pressure']}atm -> {result.rsquared}-------> Melhor R² após o optuna")
@@ -210,10 +208,11 @@ def multipleLineFit(spectra: Dict[str, float], lines: pd.DataFrame, linepercenta
 def objective(trial: Trial, xfilterline: List[float], yfilterline: List[float], center: float, **kwargs: Dict[str, Any]) -> float:
     
     # Sugere um valor para o chute inicial
-    chute = trial.suggest_float('chute', 0.0001, 1)
+    chute_sigma = trial.suggest_float('chute_sigma', 0.000001, 1)
+    chute_gamma = trial.suggest_float('chute_gamma', 0.000001),1
 
     # Executa o ajuste com os parâmetros fornecidos
-    final, result, params, successful = singleLineFit(yfilterline, xfilterline, center, chute, chute, vgamma=True, vsigma=True)
+    final, result, params, successful = singleLineFit(yfilterline, xfilterline, center, chute_sigma, chute_gamma, vgamma=True, vsigma=True)
 
     # Retorna o r² como métrica para o otimizador
     return 1 - result.rsquared  # Minimizar a diferença para o melhor ajuste (r² = 1)
@@ -226,7 +225,7 @@ def optimize(xfilterline: List[float], yfilterline: List[float], center: float) 
 
     # Configura o estudo do Optuna
     study = optuna.create_study(direction='minimize')
-    study.optimize(objective_partial, n_trials=500)
+    study.optimize(objective_partial, n_trials=5000)
 
     # Resultado do melhor ajuste
     best_params = study.best_params
