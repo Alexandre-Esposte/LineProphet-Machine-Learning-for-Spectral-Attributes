@@ -225,7 +225,7 @@ def optimize(xfilterline: List[float], yfilterline: List[float], center: float) 
 
     # Configura o estudo do Optuna
     study = optuna.create_study(direction='minimize')
-    study.optimize(objective_partial, n_trials=5000)
+    study.optimize(objective_partial, n_trials=50)
 
     # Resultado do melhor ajuste
     best_params = study.best_params

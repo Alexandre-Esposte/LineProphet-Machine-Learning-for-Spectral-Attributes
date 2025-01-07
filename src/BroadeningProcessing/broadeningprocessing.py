@@ -47,7 +47,7 @@ def linearFit(data, ex) -> Tuple[np.array, ModelResult, Dict[str, float], bool]:
     modelo = LinearModel()
     pars = modelo.guess(data, x=ex)
 
-    pars['intercept'].set(value = 0, vary = False, expr = '')
+    pars['intercept'].set(value = 0, vary = True, expr = '')
  
     try:
         result = modelo.fit(data, pars, x=ex, nan_policy='propagate')
@@ -64,7 +64,31 @@ def linearFit(data, ex) -> Tuple[np.array, ModelResult, Dict[str, float], bool]:
     return final, result, params, successful
 
 
-def selfBroadening(lines: pd.DataFrame) -> pd.DataFrame:
+def selfBroadeningPressure(lines: pd.DataFrame) -> pd.DataFrame:
 
+
+    results = pd.DataFrame()
     for m in lines['m']:
-        lines_for_every_m = lines.query(f"m == {m}").reset_index(drop=True).sort_values(by = "pressure")
+        lines_m = lines.query(f"m == {m}").reset_index(drop=True).sort_values(by = "pressure")
+        final, result, params, successful = linearFit(lines_m['hwhm'],lines_m['pressure'])
+        params['m'] = m
+        params['temperature'] = lines_m['temperature'].unique()[0]
+
+        results = pd.concat([results, pd.DataFrame({key: [value] for key, value in params.items()})], axis=0)
+
+    return results
+
+
+def selfBroadeningTemperature(lines: pd.DataFrame) -> pd.DataFrame:
+
+
+    results = pd.DataFrame()
+    for m in lines['m']:
+        lines_m = lines.query(f"m == {m}").reset_index(drop=True).sort_values(by = "temperature")
+        final, result, params, successful = linearFit(lines_m['hwhm'],lines_m['temperature'])
+        params['m'] = m
+        params['pressure'] = lines_m['pressure'].unique()[0]
+
+        results = pd.concat([results, pd.DataFrame({key: [value] for key, value in params.items()})], axis=0)
+
+    return results

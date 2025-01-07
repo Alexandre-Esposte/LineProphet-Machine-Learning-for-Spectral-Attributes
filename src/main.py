@@ -31,7 +31,7 @@ def process_temperature_pressure(args):
 def main():
     # Lista de temperaturas e pressões
     
-    temperatures = [293,295, 300, 315, 350, 373]  # Kelvin
+    temperatures = [293, 295, 300, 315, 350, 373]  # Kelvin
     pressures = [0.1, 0.2, 0.4, 0.6, 0.8, 1]  # atm
 
     optical_length = 10  # cm
