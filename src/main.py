@@ -34,7 +34,7 @@ def main():
     temperatures = [293, 295, 300, 315, 350, 373]  # Kelvin
     pressures = [0.1, 0.2, 0.4, 0.6, 0.8, 1]  # atm
 
-    optical_length = 10  # cm
+    optical_length = 1  # cm
 
     print(f"Temperatures (K): {temperatures}\nPressures (atm): {pressures}\n\n")
 
@@ -49,7 +49,7 @@ def main():
     results = pd.concat(results_list, axis=0, ignore_index=True)
 
     # Salvando os resultados
-    results.to_csv('../database/lines.csv', index=None)
+    results.to_csv('../database/lines_h35cl_c1.csv', index=None)
     print("Processamento concluído! Resultados salvos em '../database/lines.csv'.")
 
 

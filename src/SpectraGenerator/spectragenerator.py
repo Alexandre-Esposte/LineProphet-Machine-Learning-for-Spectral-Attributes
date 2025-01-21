@@ -51,6 +51,12 @@ class SpectraGenerator():
                                                                                          absorptioncoef,
                                                                                          Environment = enviroment)
             
+            #self.spectra['wavenumbers'], self.spectra['absorption'], _, _, _ = convolveSpectrum(self.spectra['wavenumbers'],
+            #                                                                                    self.spectra['absorption'],
+            #                                                                                    SlitFunction= SLIT_MICHELSON,
+            #                                                                                    Resolution = 0.1,
+            #                                                                                    AF_wing = 1 ) 
+            
             
         except:
             self.wavenumbers = 0
