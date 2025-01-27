@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     train_size = 1000
 
-    test_size = 0.2 * train_size
+    test_size = 200
 
     for i in range(train_size):
 
@@ -40,7 +40,7 @@ if __name__ == "__main__":
         
         pressure    = np.random.uniform(0.01, 0.8) 
         
-        s.simulateSpectra('HCl',{'air':0, 'self':1}, {'l':optical_length,'p':pressure,'T':temperature})
+        s.simulateSpectra('hitran_database/HCl',{'air':0, 'self':1}, {'l':optical_length,'p':pressure,'T':temperature})
         
         f, t, spec, interferogram = spectrogramFromSpectra(s.spectra)
         
