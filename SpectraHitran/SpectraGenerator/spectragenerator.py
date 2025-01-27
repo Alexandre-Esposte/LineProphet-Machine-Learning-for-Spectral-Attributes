@@ -14,7 +14,7 @@ class SpectraGenerator():
         
         print("Inicializando")
 
-        print('Base de dados hitran já existe') if "SpectraGenerator/hitran_database" in os.listdir() else db_begin('SpectraGenerator/hitran_database')
+        print('Base de dados hitran já existe') if "hitran_database" in os.listdir() else db_begin('hitran_database')
 
         
         self.spectra = {'wavenumbers':0, 'absorption':0}

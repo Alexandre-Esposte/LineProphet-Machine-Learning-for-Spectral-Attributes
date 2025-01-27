@@ -1,5 +1,5 @@
-from typing import Dict, Any
-from scipy.signal import find_peaks
+from typing import Dict, Any, Union, List, Tuple
+from scipy.signal import find_peaks, spectrogram
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -49,8 +49,24 @@ def plotSpectrum(real: Dict[str,float], lines: pd.DataFrame) -> None:
 
 
     for _,line in lines.iterrows():
-        plt.text(x= line['wavenumber'], y= line['absorption'] + 0.05, s= f"{line['branch']}({line['j']})", fontsize=8)
+        plt.text(x= line['wavenumber'], y= line['absorption'] + 0.03, s= f"{line['branch']}({line['j']})", fontsize=8)
 
     plt.xlabel('Wavenumber (cm⁻¹)')
     plt.ylabel('Absorption (A.U)' )
     plt.show()
+
+def _interferogram(spectra: Dict[str, Union[List[float], np.array]]) -> np.array:
+
+    interferogram = np.fft.irfft(spectra['absorption'])
+
+    interferogram = np.fft.ifftshift(interferogram)
+
+    return interferogram
+
+def spectrogramFromSpectra(spectra:  Dict[str, Union[List[float], np.array]])-> Tuple[np.array, np.array , np.ndarray, np.array]:
+
+    interferogram = _interferogram(spectra)
+
+    f, t, sxx = spectrogram(x=interferogram , window= 'blackmanharris' ,mode='magnitude', scaling  = 'spectrum',nperseg = 3000, nfft= 4096, noverlap=500)
+
+    return f, t, 10 * np.log10(sxx + 1e-11), interferogram
