@@ -42,7 +42,7 @@ logging.info(f'Sumario da arquitetura a ser utilizada:\n {sumario}')
 logging.info('Iniciando treinamento')
 
 
-menor_erro = dict('epoch': 0, 'error':9999, 'pesos': None) 
+menor_erro = {'epoch': 0, 'error':9999, 'pesos': None} 
 for epoch in range(epochs):
     perda_treino = train_and_test.train(model, loader_train, optimizer, loss_function)
     perda_teste  = train_and_test.test(model, loader_test, loss_function)
@@ -52,9 +52,9 @@ for epoch in range(epochs):
         menor_erro['epoch'] = epoch
         menor_erro['pesos'] = model.state_dict()
 
-    logging.debug(f"------------------Epoch {epoch + 1}/{epochs} --> train loss: {perda_treino} / test loss: {perda_teste} -------------- Menor erro: {menor_erro{'error'}} na epoca {menor_erro['epoch']}")
+    logging.debug(f"------------------Epoch {epoch + 1}/{epochs} --> train loss: {perda_treino} / test loss: {perda_teste} -------------- Menor erro: {menor_erro['error']} na epoca {menor_erro['epoch']}")
 
-logging.info(f'O menor erro ocorreu na epoca {menor_erro{'epoch'}} com o erro {menor_erro{'error'}}. Transferindo pesos associados ao menor erro para a arquitetura atual')
+logging.info(f'O menor erro ocorreu na epoca {menor_erro['epoch']} com o erro {menor_erro['error']}. Transferindo pesos associados ao menor erro para a arquitetura atual')
 model.load_state_dict(menor_erro['pesos'])
 
 logging.info('Treinamento finalizado com sucesso, salvando arquivo e finalizando treinamento')
