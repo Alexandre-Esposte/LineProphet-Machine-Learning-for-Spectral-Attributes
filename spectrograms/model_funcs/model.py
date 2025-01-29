@@ -1,5 +1,6 @@
 
 from torch import nn
+from torchvision import models
 
 
 class ConvolutionalNet(nn.Module):
@@ -7,35 +8,31 @@ class ConvolutionalNet(nn.Module):
     def __init__(self):
         
         super().__init__()
-        self.convolutional = nn.Sequential(
-        
-                
-                nn.Conv2d(1,8, kernel_size = (2,2)),
-                nn.MaxPool2d((2,2)),
-                nn.ReLU(),
-                
 
-                #nn.Conv2d(8,8,8),
-                #nn.Conv2d(8,8,4),
-                nn.Conv2d(8,8,2),
-                nn.AdaptiveAvgPool2d((20,20)),
-                nn.ReLU(),
-                
-                
-        )
+        # Preciso criar uma adaptação para o input no mobilenet. Poderia mudar na própria rede, mas prefiro nao fazer
+        self.adaptador = nn.Conv2d(1,3,4)
 
-        self.dense = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(8*20*20,2),
-            nn.Sigmoid()
+
+        # Carregando o mobilenet
+        self.base_model = models.get_model("mobilenet_v3_small", weights="DEFAULT")
+
+
+        # Eu quero treinar somente as camadas fully connected, para isso eu preciso desabilitar o calculo de gradiente para as demais camadas
+        # A camada fc é nomeada como classifier no mobilenet
+        for name, param in self.base_model.named_parameters():
+            if 'classifier' not in name:
+                param.requires_grad = False
             
-        )
+        # Preciso que a saída seja apenas 2 neuronios
+        in_features = self.base_model.classifier[-1].in_features
+        self.base_model.classifier[-1] = nn.Linear(in_features, 2)
+
 
 
     def forward(self,X):
         
-        features = self.convolutional(X)
+        entrada_adaptada = self.adaptador(X)
 
-        y = self.dense(features)
+        y = self.base_model(entrada_adaptada)
 
         return y

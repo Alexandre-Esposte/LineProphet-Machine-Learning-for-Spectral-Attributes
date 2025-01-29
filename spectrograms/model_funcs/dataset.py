@@ -26,9 +26,10 @@ class SpectraDataset(Dataset):
 
 
         temperature = float(spectrogram_name.split("_")[1])
-        temperature /= 400
+        
 
         pressure = float(spectrogram_name.split("_")[2].split('.npz')[0])
+        
 
         target = torch.tensor([temperature,pressure], dtype = torch.float)
 
