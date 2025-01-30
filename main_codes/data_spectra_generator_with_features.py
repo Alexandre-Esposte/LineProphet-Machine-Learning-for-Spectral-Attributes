@@ -1,6 +1,6 @@
-from SpectraGenerator.spectragenerator import SpectraGenerator
-from SpectraProcessing.spectraprocessing import branchClassification
-from SpectraFit.spectrafit import multipleLineFit
+from SpectraHitran.SpectraGenerator.spectragenerator import SpectraGenerator
+from SpectraHitran.SpectraProcessing.spectraprocessing import branchClassification
+from SpectraHitran.SpectraFit.spectrafit import multipleLineFit
 
 import pandas as pd
 from multiprocessing import Pool
