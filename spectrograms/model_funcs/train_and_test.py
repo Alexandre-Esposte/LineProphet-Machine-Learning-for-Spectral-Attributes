@@ -25,7 +25,7 @@ def train(model: nn.Module, dataloader: DataLoader, optimizer: Optimizer, loss_f
 
         pred = model(X)
         
-        loss = f1loss(pred, target)
+        loss = loss_fn(pred, target)
         
         perdas.append(loss.item())
        
@@ -50,7 +50,7 @@ def test(model: nn.Module, dataloader: DataLoader, loss_fn: nn.Module) -> float:
 
 
             pred = model(X)
-            perdas.append(f1loss(pred, target).item())
+            perdas.append(loss_fn(pred, target).item())
 
     
     return np.mean(perdas)

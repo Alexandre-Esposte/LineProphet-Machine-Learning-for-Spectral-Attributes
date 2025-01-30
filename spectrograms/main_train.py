@@ -16,8 +16,8 @@ logging.debug('\n----------------------Novo treinamento iniciado----------------
 
 
 batch_size = 8
-learning_rate = 1e-3
-epochs = 20
+learning_rate = 1e-4
+epochs = 50
 
 
 train = dataset.SpectraDataset('train')
@@ -39,6 +39,8 @@ optimizer = Adam(params= model.parameters(),lr = learning_rate, weight_decay= 1e
 logging.info(f'Dados separados e preparados com sucesso, hiperparâmetros ajustados com sucesso. Serão {len(train)} para treino e {len(test)} para teste')
 logging.info(f'Sumario da arquitetura a ser utilizada:\n {sumario}')
 
+logging.info(f'Configurações básicas: batch size: {batch_size} / learning rate: {learning_rate} / epocas: {epochs}')
+
 logging.info('Iniciando treinamento')
 
 
@@ -47,14 +49,14 @@ for epoch in range(epochs):
     perda_treino = train_and_test.train(model, loader_train, optimizer, loss_function)
     perda_teste  = train_and_test.test(model, loader_test, loss_function)
 
-    if perda_teste < menor_erro['test_error']:
-        menor_erro['test_error'] = perda_teste
-        menor_erro['epoch'] = epoch
+    if perda_teste < menor_erro['error']:
+        menor_erro['error'] = perda_teste
+        menor_erro['epoch'] = epoch + 1
         menor_erro['pesos'] = model.state_dict()
 
     logging.debug(f"------------------Epoch {epoch + 1}/{epochs} --> train loss: {perda_treino} / test loss: {perda_teste} -------------- Menor erro: {menor_erro['error']} na epoca {menor_erro['epoch']}")
 
-logging.info(f'O menor erro ocorreu na epoca {menor_erro['epoch']} com o erro {menor_erro['error']}. Transferindo pesos associados ao menor erro para a arquitetura atual')
+logging.info(f'O menor erro ocorreu na epoca {menor_erro["epoch"]} com o erro {menor_erro["error"]}. Transferindo pesos associados ao menor erro para a arquitetura atual')
 model.load_state_dict(menor_erro['pesos'])
 
 logging.info('Treinamento finalizado com sucesso, salvando arquivo e finalizando treinamento')
