@@ -1,6 +1,6 @@
-from SpectraGenerator.spectragenerator import SpectraGenerator
-from SpectraProcessing.spectraprocessing import branchClassification, plotSpectrum, spectrogramFromSpectra
-from SpectraFit.spectrafit import filterLine,singleLineFit, multipleLineFit
+from SpectraHitran.SpectraGenerator.spectragenerator import SpectraGenerator
+from SpectraHitran.SpectraProcessing.spectraprocessing import branchClassification, plotSpectrum, spectrogramFromSpectra
+from SpectraHitran.SpectraFit.spectrafit import filterLine,singleLineFit, multipleLineFit
 
 import numpy as np
 
