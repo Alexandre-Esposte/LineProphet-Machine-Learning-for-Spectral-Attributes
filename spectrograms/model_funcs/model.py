@@ -14,7 +14,7 @@ class ConvolutionalNet(nn.Module):
 
 
         # Carregando o mobilenet
-        self.base_model = models.get_model("mobilenet_v3_small", weights="DEFAULT")
+        self.base_model = models.get_model('mobilenet_v2',weights = 'MobileNet_V2_Weights.IMAGENET1K_V2')
 
 
         # Eu quero treinar somente as camadas fully connected, para isso eu preciso desabilitar o calculo de gradiente para as demais camadas

@@ -2,16 +2,11 @@ import torch
 from torch.utils.data import DataLoader
 from torch import nn
 from torch.optim import Optimizer
+from typing import Tuple
+
 
 import numpy as np
 
-def f1loss(real,pred):
-    
-    temp_error = torch.mean(torch.abs(real[0]- pred[0]))
-
-    pres_error = torch.mean(torch.abs(real[1]- pred[1]))
-
-    return (2*temp_error*pres_error)/(temp_error + pres_error)
 
 def train(model: nn.Module, dataloader: DataLoader, optimizer: Optimizer, loss_fn: nn.Module) -> float:
 
@@ -25,12 +20,16 @@ def train(model: nn.Module, dataloader: DataLoader, optimizer: Optimizer, loss_f
 
         pred = model(X)
         
-        loss = loss_fn(pred, target)
+        temperatura_loss = loss_fn(pred[0][0], target[0])
+
+        pressure_loss = loss_fn(pred[0][1], target[1])
+
+        total_loss = temperatura_loss + pressure_loss
         
-        perdas.append(loss.item())
+        perdas.append(total_loss.item())
        
         # Backpropagation
-        loss.backward()
+        total_loss.backward()
 
         optimizer.step()
         optimizer.zero_grad()
@@ -44,16 +43,26 @@ def test(model: nn.Module, dataloader: DataLoader, loss_fn: nn.Module) -> float:
     num_batches = len(dataloader)
 
     perdas = []
+    perdas_temp = []
+    perdas_pres = []
     with torch.no_grad():
         for data in dataloader:
             X, target = data[0], data[1]
 
 
             pred = model(X)
-            perdas.append(loss_fn(pred, target).item())
+
+
+            temperatura_loss = loss_fn(pred[0][0], target[0])
+            pressure_loss = loss_fn(pred[0][1], target[1])
+            total_loss = temperatura_loss + pressure_loss
+
+            perdas.append(total_loss.item())
+            perdas_temp.append(temperatura_loss.item())
+            perdas_pres.append(pressure_loss.item())
 
     
-    return np.mean(perdas)
+    return np.mean(perdas), np.mean(perdas_temp), np.mean(perdas_pres)
 
 
 
