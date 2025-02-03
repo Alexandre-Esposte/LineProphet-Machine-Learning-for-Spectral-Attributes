@@ -1,6 +1,6 @@
-from model_funcs import dataset
-from model_funcs import train_and_test
-from model_funcs.model import ConvolutionalNet
+from ModelSchema.NeuralNetWork.model import ConvolutionalNet
+from ModelSchema.NeuralNetWork import dataset
+from ModelSchema.NeuralNetWork import train_and_test
 from torch.utils.data import DataLoader
 from torch import nn
 from torch.optim import Adam
@@ -13,13 +13,13 @@ logging.basicConfig(filename='train.log',level=logging.DEBUG, format='%(asctime)
 logging.debug('\n----------------------Novo treinamento iniciado-------------------------------------------\n')
 
 
-batch_size = 2
+batch_size = 32
 learning_rate = 1e-4
 epochs = 20
 
 
-train = dataset.SpectraDataset('train')
-test = dataset.SpectraDataset('test')
+train = dataset.SpectraDataset('../database/spectras/train')
+test = dataset.SpectraDataset( '../database/spectras/test')
 
 loader_train = DataLoader(train, batch_size= batch_size, pin_memory= True, shuffle = True)
 loader_test = DataLoader(test, batch_size= batch_size, pin_memory= True, shuffle = True)

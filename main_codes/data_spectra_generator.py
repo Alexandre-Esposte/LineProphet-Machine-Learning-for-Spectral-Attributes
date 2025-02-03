@@ -9,7 +9,7 @@ import numpy as np
 if __name__ == "__main__":
 
     s = SpectraGenerator()
-    s.downloadMolecule('hitran_database/HCl', (52,53), (5300,5900))
+    s.downloadMolecule('hcl',(52,53),(5200,5900))
 
     optical_length = 2 #cm
 
@@ -21,27 +21,23 @@ if __name__ == "__main__":
 
         print(f'Train: {i+1}/{train_size}')
 
-        temperature = np.random.uniform(250, 400) 
+        temperature = np.random.uniform(273.15, 373.15) 
 
-        pressure    = np.random.uniform(0.01, 0.8) 
+        pressure    = np.random.uniform(0.01, 1) 
 
-        s.simulateSpectra('hitran_database/HCl',{'air':0, 'self':1}, {'l':optical_length,'p':pressure,'T':temperature})
+        s.simulateSpectra('hcl',{'air':0, 'self':1}, {'l':optical_length,'p':pressure,'T':temperature})
 
-        f, t, spec, interferogram = spectrogramFromSpectra(s.spectra)
-
-        np.savez_compressed(f'train/{i+1}_{temperature}_{pressure}', a = spec)
+        np.savez_compressed(f'../database/spectras/train/{i+1}_{temperature}_{pressure}', spectra = s.spectra)
 
     for i in range(test_size):
 
         
         print(f'Test: {i+1}/{test_size}')
         
-        temperature = np.random.uniform(250, 400) 
+        temperature = np.random.uniform(273.15, 373.15) 
         
-        pressure    = np.random.uniform(0.01, 0.8) 
+        pressure    = np.random.uniform(0.01, 1) 
         
-        s.simulateSpectra('hitran_database/HCl',{'air':0, 'self':1}, {'l':optical_length,'p':pressure,'T':temperature})
-        
-        f, t, spec, interferogram = spectrogramFromSpectra(s.spectra)
-        
-        np.savez_compressed(f'test/{i+1}_{temperature}_{pressure}',a = spec)
+        s.simulateSpectra('hcl',{'air':0, 'self':1}, {'l':optical_length,'p':pressure,'T':temperature})
+          
+        np.savez_compressed(f'../database/spectras/test/{i+1}_{temperature}_{pressure}', spectra = s.spectra)

@@ -49,8 +49,8 @@ def main():
     results = pd.concat(results_list, axis=0, ignore_index=True)
 
     # Salvando os resultados
-    results.to_csv('../database/lines_h35cl_c1.csv', index=None)
-    print("Processamento concluído! Resultados salvos em '../database/lines.csv'.")
+    results.to_csv('../database/selfbroadening/lines_h35cl_c1.csv', index=None)
+    print("Processamento concluído!")
 
 
 if __name__ == "__main__":
