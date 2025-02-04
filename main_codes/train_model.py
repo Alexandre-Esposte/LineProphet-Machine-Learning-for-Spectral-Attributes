@@ -13,7 +13,7 @@ logging.basicConfig(filename='train.log',level=logging.DEBUG, format='%(asctime)
 logging.debug('\n----------------------Novo treinamento iniciado-------------------------------------------\n')
 
 
-batch_size = 32
+batch_size = 4
 learning_rate = 1e-4
 epochs = 20
 

@@ -34,7 +34,7 @@ def main():
     temperatures = [293, 295, 300, 315, 350, 373]  # Kelvin
     pressures = [0.1, 0.2, 0.4, 0.6, 0.8, 1]  # atm
 
-    optical_length = 1  # cm
+    optical_length = 2  # cm
 
     print(f"Temperatures (K): {temperatures}\nPressures (atm): {pressures}\n\n")
 

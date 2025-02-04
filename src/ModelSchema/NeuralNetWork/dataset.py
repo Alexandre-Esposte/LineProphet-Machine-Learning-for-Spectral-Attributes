@@ -27,24 +27,24 @@ class SpectraDataset(Dataset):
         spectrogram = spectrogram.unsqueeze(0)
 
         temperature = float(spectra_name.split("_")[1])
-        #temperature = (temperature - 250) / (400 - 250)
+        temperature = (temperature - 273.15) / (373.15 - 273.15)
         
 
         pressure = float(spectra_name.split("_")[2].split('.npz')[0])
-        #pressure = (pressure - 0.01) / (0.8 - 0.01)
+        pressure = (pressure - 0.01) / (1 - 0.01)
         
 
         target = torch.tensor([temperature,pressure], dtype = torch.float)
 
 
-        return spectrogram, target, interferogram
+        return spectrogram, target
     
 
     def _stft(self, spectra: torch.tensor ) -> torch.tensor:
         
         interferogram = self._interferogram(signal = spectra)
 
-        result = torch.stft(interferogram, n_fft = 1024, return_complex = True, normalized = True, window=torch.hann_window(1024, device='cpu'))
+        result = torch.stft(interferogram, n_fft = 512, return_complex = True, normalized = True, window=torch.hann_window(512, device='cpu'))
         magnitude = torch.abs(result)
         
         # Verificar se existem valores negativos ou NaNs no emagnitudea original

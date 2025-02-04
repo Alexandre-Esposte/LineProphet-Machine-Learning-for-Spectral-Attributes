@@ -5,6 +5,10 @@ from SpectraHitran.SpectraFit.spectrafit import filterLine,singleLineFit, multip
 import numpy as np
 
 
+train = np.loadtxt('../database/envs_train.txt')
+
+test =  np.loadtxt('../database/envs_test.txt')
+
 
 if __name__ == "__main__":
 
@@ -13,30 +17,30 @@ if __name__ == "__main__":
 
     optical_length = 2 #cm
 
-    train_size = 1000
+    #train_size = 1000
 
-    test_size = 200
+    #test_size = 200
 
-    for i in range(train_size):
+    for i, vars in enumerate(train):
 
-        print(f'Train: {i+1}/{train_size}')
+        print(f'Train: {i+1}/{len(train)}')
 
-        temperature = np.random.uniform(273.15, 373.15) 
+        temperature = vars[0] 
 
-        pressure    = np.random.uniform(0.01, 1) 
+        pressure    = vars[1]
 
         s.simulateSpectra('hcl',{'air':0, 'self':1}, {'l':optical_length,'p':pressure,'T':temperature})
 
         np.savez_compressed(f'../database/spectras/train/{i+1}_{temperature}_{pressure}', spectra = s.spectra)
 
-    for i in range(test_size):
+    for i, vars in test:
 
         
-        print(f'Test: {i+1}/{test_size}')
+        print(f'Test: {i+1}/{len(test)}')
         
-        temperature = np.random.uniform(273.15, 373.15) 
+        temperature = vars[0] 
         
-        pressure    = np.random.uniform(0.01, 1) 
+        pressure    = vars[1] 
         
         s.simulateSpectra('hcl',{'air':0, 'self':1}, {'l':optical_length,'p':pressure,'T':temperature})
           
