@@ -4,37 +4,42 @@ from torch import nn
 from torch.optim import Optimizer
 from typing import Tuple
 
-
 import numpy as np
+
+
 
 
 def train(model: nn.Module, dataloader: DataLoader, optimizer: Optimizer, loss_fn: nn.Module) -> float:
 
     size = len(dataloader.dataset)
 
-    perdas = []
     model.train()
     for batch, data in enumerate(dataloader):
         
         X, target = data[0], data[1]
 
         pred = model(X)
-        
-        temperatura_loss = loss_fn(pred[0][0], target[0])
 
-        pressure_loss = loss_fn(pred[0][1], target[1])
+        pred_temp = pred[:, 0]
+        pred_pres = pred[:, 1]
 
-        total_loss = temperatura_loss + pressure_loss
+        target_temp = target[:, 0]
+        target_pres = target[:, 1]
         
-        perdas.append(total_loss.item())
+        temperatura_loss = loss_fn(pred_temp, target_temp)
+
+        pressure_loss = loss_fn(pred_pres, target_pres)
+
+        total_loss_batch = temperatura_loss + pressure_loss
+        
        
         # Backpropagation
-        total_loss.backward()
+        total_loss_batch.backward()
 
         optimizer.step()
         optimizer.zero_grad()
 
-    return np.mean(perdas)
+    return total_loss_batch / len(dataloader)
 
 def test(model: nn.Module, dataloader: DataLoader, loss_fn: nn.Module) -> float:
 
@@ -42,9 +47,9 @@ def test(model: nn.Module, dataloader: DataLoader, loss_fn: nn.Module) -> float:
     model.eval()
     num_batches = len(dataloader)
 
-    perdas = []
-    perdas_temp = []
-    perdas_pres = []
+    total_loss = 0.0
+    total_loss_temp = 0.0
+    total_loss_press = 0.0
     with torch.no_grad():
         for data in dataloader:
             X, target = data[0], data[1]
@@ -53,18 +58,22 @@ def test(model: nn.Module, dataloader: DataLoader, loss_fn: nn.Module) -> float:
             pred = model(X)
 
 
-            temperatura_loss = loss_fn(pred[0][0], target[0])
-            pressure_loss = loss_fn(pred[0][1], target[1])
-            total_loss = temperatura_loss + pressure_loss
+            pred_temp = pred[:, 0]
+            pred_press = pred[:, 1]
+            
+            target_temp = target[:, 0]
+            target_press = target[:, 1]
+            
+            loss_temp = loss_fn(pred_temp, target_temp)
+            loss_press = loss_fn(pred_press, target_press)
+            total_loss_batch = loss_temp + loss_press
+            
+            total_loss += total_loss_batch.item()
+            total_loss_temp += loss_temp.item()
+            total_loss_press += loss_press.item()
 
-            perdas.append(total_loss.item())
-            perdas_temp.append(temperatura_loss.item())
-            perdas_pres.append(pressure_loss.item())
 
     
-    return np.mean(perdas), np.mean(perdas_temp), np.mean(perdas_pres)
+    return total_loss / num_batches, total_loss_temp / num_batches, total_loss_press / num_batches
 
-
-
-def saveModel(model: nn.Module, name: str):
-    torch.save(model,'models/'+name)
+    

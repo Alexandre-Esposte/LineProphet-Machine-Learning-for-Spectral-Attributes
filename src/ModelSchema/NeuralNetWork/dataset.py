@@ -3,6 +3,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import os
 from typing import Tuple, Dict, Union, List
+from torchvision import transforms
 
 class SpectraDataset(Dataset):
 
@@ -24,7 +25,12 @@ class SpectraDataset(Dataset):
 
         spectrogram, interferogram = self._stft(spectra = spectra)
 
+        resize = transforms.Resize((100,100))
+
+        
         spectrogram = spectrogram.unsqueeze(0)
+
+        spectrogram = resize(spectrogram)
 
         temperature = float(spectra_name.split("_")[1])
         temperature = (temperature - 273.15) / (373.15 - 273.15)
@@ -44,7 +50,7 @@ class SpectraDataset(Dataset):
         
         interferogram = self._interferogram(signal = spectra)
 
-        result = torch.stft(interferogram, n_fft = 512, return_complex = True, normalized = True, window=torch.hann_window(512, device='cpu'))
+        result = torch.stft(interferogram, n_fft = 2048, return_complex = True, normalized = True, window=torch.hann_window(2048, device='cpu'))
         magnitude = torch.abs(result)
         
         # Verificar se existem valores negativos ou NaNs no emagnitudea original
@@ -54,7 +60,7 @@ class SpectraDataset(Dataset):
             print("Aviso: Valores NaN detectados na magnitude!")
 
         # Evitar log(0) adicionando epsilon
-        magnitude_clamped = torch.clamp(magnitude, min=1e-11)
+        magnitude_clamped = torch.clamp(magnitude, min=1e-14)
 
         # Converter para decibéis
         magnitude_db = 20 * torch.log10(magnitude_clamped)
@@ -68,7 +74,7 @@ class SpectraDataset(Dataset):
         # Substituir NaNs e Infinitos por 0
         magnitude_db = torch.nan_to_num(magnitude_db, nan=0.0, posinf=0.0, neginf=0.0)
 
-        return magnitude, interferogram
+        return magnitude_db, interferogram
 
     def _interferogram(self, signal: np.array) -> np.array:
 

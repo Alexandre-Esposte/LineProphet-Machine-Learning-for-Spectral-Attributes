@@ -9,6 +9,8 @@ train = np.loadtxt('../database/envs_train.txt')
 
 test =  np.loadtxt('../database/envs_test.txt')
 
+valid =  np.loadtxt('../database/envs_valid.txt')
+
 
 if __name__ == "__main__":
 
@@ -33,7 +35,7 @@ if __name__ == "__main__":
 
         np.savez_compressed(f'../database/spectras/train/{i+1}_{temperature}_{pressure}', spectra = s.spectra)
 
-    for i, vars in test:
+    for i, vars in enumerate(test):
 
         
         print(f'Test: {i+1}/{len(test)}')
@@ -45,3 +47,17 @@ if __name__ == "__main__":
         s.simulateSpectra('hcl',{'air':0, 'self':1}, {'l':optical_length,'p':pressure,'T':temperature})
           
         np.savez_compressed(f'../database/spectras/test/{i+1}_{temperature}_{pressure}', spectra = s.spectra)
+
+        
+    for i, vars in enumerate(valid):
+
+        
+        print(f'valid: {i+1}/{len(test)}')
+        
+        temperature = vars[0] 
+        
+        pressure    = vars[1] 
+        
+        s.simulateSpectra('hcl',{'air':0, 'self':1}, {'l':optical_length,'p':pressure,'T':temperature})
+          
+        np.savez_compressed(f'../database/spectras/valid/{i+1}_{temperature}_{pressure}', spectra = s.spectra)

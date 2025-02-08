@@ -36,7 +36,7 @@ class SpectraGenerator():
             traceback.print_exc()
             
 
-    def simulateSpectra(self,moleculeName: str, diluent: Dict[str, float], enviroment: Dict[str, float], step: float = 0.001) -> None:
+    def simulateSpectra(self,moleculeName: str, diluent: Dict[str, float], enviroment: Dict[str, float], step: float = 0.01) -> None:
 
 
         try: 
