@@ -1,6 +1,7 @@
 
 from torch import nn
 from torchvision import models
+import torch
 
 
 class ConvolutionalNet(nn.Module):
@@ -21,9 +22,12 @@ class ConvolutionalNet(nn.Module):
         # A camada fc é nomeada como classifier no mobilenet
         for name, param in self.base_model.named_parameters():
             
-            if 'fc' not in name:
+            if 'classifier' not in name:
                 param.requires_grad = False
 
+        self.top = nn.Sequential(
+            nn.Linear(2,1)
+        )
 
 
     def forward(self,X):
@@ -32,4 +36,41 @@ class ConvolutionalNet(nn.Module):
 
         y = self.base_model(entrada_adaptada)
 
+        y = self.top(y)
+
         return y
+    
+
+class ConvolutionalAutoEncoder(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+
+
+        # Encoder
+        self.encoder = nn.Sequential(
+            nn.Conv2d(1, 8, kernel_size=3, stride=2, padding=1),  # Redução mais eficiente
+            nn.ReLU(),
+            nn.BatchNorm2d(8),
+            
+            nn.Conv2d(8, 8, kernel_size=3, stride=2, padding=1),  # Mais canais para melhor representação
+            nn.ReLU(),
+            nn.BatchNorm2d(8),
+        )
+        
+        # Decoder 
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(8, 8, kernel_size=3, stride=2, padding=1, output_padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(8),
+            nn.ConvTranspose2d(8, 1, kernel_size=3, stride=2, padding=1, output_padding=1),
+            
+        )
+        
+    def forward(self, x):
+        
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+
+        return decoded
+    

@@ -17,7 +17,7 @@ if __name__ == "__main__":
     s = SpectraGenerator()
     s.downloadMolecule('hcl',(52,53),(5200,5900))
 
-    optical_length = 2 #cm
+    optical_length = [2] #cm
 
     #train_size = 1000
 
