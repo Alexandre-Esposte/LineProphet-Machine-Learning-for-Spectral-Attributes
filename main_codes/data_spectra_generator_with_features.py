@@ -19,6 +19,7 @@ def process_temperature_pressure(args):
     # Simulando o espectro
     s.simulateSpectra('hcl', {'air': 0, 'self': 1}, {'l': optical_length, 'p': pressure, 'T': temperature})
     s.spectra['absorption'] = s.spectra['absorption']/ np.max(s.spectra['absorption'])
+    s.spectra['absorption'] = np.random.normal(s.spectra['absorption'],0.001)
 
     # Organizando as linhas
     lines = branchClassification(s.spectra, findPeaksParams={'height': 0.01, 'width': 1, 'distance': None},thresoldBranch=5665)
