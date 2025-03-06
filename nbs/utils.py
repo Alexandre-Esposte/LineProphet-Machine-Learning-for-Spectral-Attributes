@@ -4,56 +4,12 @@ from sklearn.pipeline import Pipeline
 from scipy.stats import norm
 from sklearn.metrics import mean_absolute_error, root_mean_squared_error
 from sklearn.model_selection import KFold
-
+import os
 
 
 def r2Filter(df,limiar):
     return df.query(f'r2 > {limiar}')
 
-def crossValMultioutput(splits = 5, X = None, y = None, model = None):
- 
-
-    kf = KFold(n_splits = splits, random_state = 42, shuffle = True)
-
-    folds = kf.split(X, y)
-
-    mse_pressure = 0
-    mse_temperature = 0
-    mae_pressure = 0
-    mae_temperature = 0
-    
-    for i, (itrain, itest) in enumerate(folds):
-
-        X_train = X.iloc[itrain, :]
-        X_test  = X.iloc[itest, :]
-
-        y_train = y.iloc[itrain, :]
-        y_test  = y.iloc[itest , :]
-
-
-        model.fit(X_train, y_train)
-        y_hat = model.predict(X_test)
-
-
-
-        mse_pressure  += root_mean_squared_error(y_test['pressure'], y_hat[:, 1])
-        mae_pressure  += mean_absolute_error(y_test['pressure'], y_hat[:, 1])
-
-        mse_temperature += root_mean_squared_error(y_test['temperature'], y_hat[:, 0])
-        mae_temperature += mean_absolute_error(y_test['temperature'], y_hat[:, 0])
-
-
-
-    return mse_temperature/splits, mae_temperature/splits, mse_pressure/splits, mae_pressure/splits
-
-def loss(y_real, y_pred):
-    mse_pressure  = root_mean_squared_error(y_real['pressure'], y_pred[:, 1])
-    mae_pressure  = mean_absolute_error(y_real['pressure'], y_pred[:, 1])
-
-    mse_temperature = root_mean_squared_error(y_real['temperature'], y_pred[:, 0])
-    mae_temperature = mean_absolute_error(y_real['temperature'], y_pred[:, 0])
-
-    return mae_temperature, mse_temperature, mae_pressure, mse_pressure
 
 
 def bootstrap_normal_ci(predictions, n_bootstrap=10000, ci= 95):
@@ -86,36 +42,6 @@ def bootstrap_normal_ci(predictions, n_bootstrap=10000, ci= 95):
     return mean_pred, lower, upper
 
 
-def validacaoCruzadaMultioutput(X_train, y_train, model, preprocessor):
-
-    results = {'model': [],
-        'mae_temperature': [],
-        'mse_temperature': [],
-        'mae_pressure':[],
-        'mse_pressure':[]}
-    
-
-    for name, model in model.items():
-
-            step = [('preprocessor', preprocessor),
-                    ('Model', model)]
-            
-            model_pipe = Pipeline(steps = step)
-
-            print(name)
-            mse_temp, mae_temp, mse_pres, mae_pres  = crossValMultioutput(X = X_train, y = y_train, model = model_pipe)
-
-            results['model'].append(name)
-            results['mae_temperature'].append(mae_temp)
-            results['mse_temperature'].append(mse_temp)
-            results['mae_pressure'].append(mae_pres)
-            results['mse_pressure'].append(mse_pres)
-
-    return pd.DataFrame(results)
-
-
-
-
 
 def crossVal(splits = 5, X = None, y = None, model = None):
  
@@ -126,6 +52,7 @@ def crossVal(splits = 5, X = None, y = None, model = None):
 
     mae = 0
     mse = 0
+    mape = 0
     
     for i, (itrain, itest) in enumerate(folds):
 
@@ -140,19 +67,19 @@ def crossVal(splits = 5, X = None, y = None, model = None):
         y_hat = model.predict(X_test)
 
 
-
         mse  += root_mean_squared_error(y_test, y_hat)
         mae  += mean_absolute_error(y_test, y_hat)
+        mape += np.mean(np.abs((y_test - y_hat) / y_test)) * 100
 
-
-    return mse/splits, mae/splits
+    return mse/splits, mae/splits, mape/splits
 
 
 def validacaoCruzada(X_train, y_train, model, preprocessor):
 
     results = {'model': [],
                'mae': [],
-               'mse': []
+               'mse': [],
+               'mape': []
               }
     
 
@@ -164,10 +91,46 @@ def validacaoCruzada(X_train, y_train, model, preprocessor):
             model_pipe = Pipeline(steps = step)
 
             print(name)
-            mse, mae = crossVal(X = X_train, y = y_train, model = model_pipe)
+            mse, mae, mape = crossVal(X = X_train, y = y_train, model = model_pipe)
 
             results['model'].append(name)
             results['mae'].append(mae)
             results['mse'].append(mse)
+            results['mape'].append(mape)
 
     return pd.DataFrame(results)
+
+
+def eng_features(df):
+     
+    # proporções e razoes
+    df['gamma_sigma_ratio'] = df['gamma'] / df['sigma']
+    df['amplitude_sigma_ratio'] = df['amplitude'] / df['sigma']
+    df['amplitude_gamma_ratio'] = df['amplitude'] / df['gamma']
+    df['fwhm_height_ratio'] = df['fwhm'] / df['height']
+    df['sigma_plus_gamma'] = df['sigma'] + df['gamma']
+
+    # features nao lineares
+    df['sigma_gamma_interaction'] = df['sigma'] * df['gamma']
+    df['amplitude_fwhm_interaction'] = df['amplitude'] * df['fwhm']
+    df['sigma2'] = df['sigma']**2
+    df['gamma2'] = df['gamma']**2
+
+    df['ratio_lg'] = df['gamma']/ (df['sigma'] + df['gamma'])
+
+
+    return df
+    
+
+def integrar_dados():
+    arqs = os.listdir('../database/lines/train')
+
+    data = pd.DataFrame()
+    for arq in arqs:
+        data = pd.concat([data,pd.read_csv("../database/lines/train/"+arq)])
+
+    data = data.reset_index(drop=True)
+    data = data.drop(columns=['Unnamed: 0'])
+    print(data.shape)
+    print('Dados integrados.')
+    data.to_csv('../database/lines/lines_train.csv', index=None)

@@ -47,15 +47,19 @@ class SpectraGenerator():
                                                                       WavenumberStep = step,
                                                                       WavenumberWing = 50)
             
-            self.spectra['wavenumbers'], self.spectra['absorption'] = absorptionSpectrum(wavenumbers,
-                                                                                         absorptioncoef,
-                                                                                         Environment = enviroment)
+            transmitance = np.exp(-absorptioncoef * enviroment['l'])
+            absorption = -np.log10(transmitance)
+
+            self.spectra['wavenumbers'], self.spectra['absorption'] =  wavenumbers, absorption
+            #self.spectra['wavenumbers'], self.spectra['absorption'] = absorptionSpectrum(wavenumbers,
+            #                                                                             absorptioncoef,
+            #                                                                             Environment = enviroment)
             
-            #self.spectra['wavenumbers'], self.spectra['absorption'], _, _, _ = convolveSpectrum(self.spectra['wavenumbers'],
-            #                                                                                    self.spectra['absorption'],
-            #                                                                                    SlitFunction= SLIT_MICHELSON,
-            #                                                                                    Resolution = 0.1,
-            #                                                                                    AF_wing = 1 ) 
+            self.spectra['wavenumbers'], self.spectra['absorption'], _, _, _ = convolveSpectrum(self.spectra['wavenumbers'],
+                                                                                                self.spectra['absorption'],
+                                                                                                SlitFunction= SLIT_MICHELSON,
+                                                                                                Resolution = 0.07,
+                                                                                                AF_wing = 0.1 ) 
             
             
         except:
