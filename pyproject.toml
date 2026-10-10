@@ -14,10 +14,16 @@ package = false
 [tool.uv.workspace]
 members = ["packages/*", "data_eng", "data_science"]
 
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
 [tool.uv.sources]
 spectra-hitran = { workspace = true }
 data-eng = { workspace = true }
 data-science = { workspace = true }
+torch = { index = "pytorch-cu126" }
 
 [dependency-groups]
 dev = [

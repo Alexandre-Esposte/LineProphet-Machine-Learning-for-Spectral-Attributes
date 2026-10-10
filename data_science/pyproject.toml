@@ -8,6 +8,10 @@ dependencies = [
     "spectra-hitran",
     "scikit-learn>=1.5",
     "torch>=2.14.0",
+    "torchinfo>=1.8.0",
+    "pyyaml>=6.0.2",
+    "tensorboard>=2.21.0",
+    "optuna>=4.9.0",
 ]
 
 [build-system]
@@ -15,7 +19,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/convolutional_autoencoder"]
+packages = ["src/convolutional_autoencoder", "src/common"]
 
 [tool.uv.sources]
 spectra-hitran = { workspace = true }

@@ -1,1 +1,2 @@
 from .model import ConvolutionalAutoencoder, UpSampleConvolutionalBlock, ConvolutionalBlock
+from .dataset import AutoencoderDataSet

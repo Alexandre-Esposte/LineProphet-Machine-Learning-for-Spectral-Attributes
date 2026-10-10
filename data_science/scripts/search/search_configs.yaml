@@ -1,0 +1,66 @@
+# Paths
+train: C:\Users\alexa\OneDrive\Área de Trabalho\LineProphet-Machine-Learning-for-Spectral-Attributes\database\train
+valid: C:\Users\alexa\OneDrive\Área de Trabalho\LineProphet-Machine-Learning-for-Spectral-Attributes\database\valid
+test: C:\Users\alexa\OneDrive\Área de Trabalho\LineProphet-Machine-Learning-for-Spectral-Attributes\database\test
+# Onde salvar o yaml com a melhor config (mesmo formato do train_configs.yaml)
+output_dir: C:\Users\alexa\OneDrive\Área de Trabalho\LineProphet-Machine-Learning-for-Spectral-Attributes\data_science\search_results\
+
+# Estudo do Optuna
+study_name: autoencoder_latent16
+n_trials: 30
+# Épocas por trial (curto; a melhor config depois é treinada com mais épocas no train.py)
+epochs: 5
+# null = histórico só em memória. Ex: sqlite:///search.db para salvar em arquivo e poder retomar
+storage: null
+
+# Loss de treino (SpectralLoss, fixa por estudo; parâmetros em common/losses.py).
+# O objetivo do Optuna é sempre o MSE da absorção na validação
+loss: {alpha: 5, beta: 0, gamma: 0}
+
+# Linha de base (data augmentation): soma offset + inclinação aleatórios só na
+# entrada; offset em [-offset_max, offset_max] e rampa de ponta a ponta em
+# [-slope_max, slope_max] (absorbância), com probabilidade p
+baseline_shift: {p: 0.5, offset_max: 0.1, slope_max: 0.05}
+
+# Canal de máscara (fixo por estudo, pois muda a entrada do modelo)
+mask_channel: true
+
+#Atributos dataloader
+num_workers: 4
+
+# Pruning: a partir de n_startup_trials trials concluídos, interrompe o trial
+# cuja loss de teste fique acima da mediana dos anteriores na mesma época
+# (só depois de n_warmup_steps épocas)
+pruner:
+  n_startup_trials: 5
+  n_warmup_steps: 2
+
+# Espaço de busca. Cada parâmetro pode ser:
+#   valor fixo:        latent_space: 16
+#   lista de opções:   {type: categorical, choices: [8, 16, 32]}
+#   inteiro:           {type: int, low: 1, high: 4}            (step opcional)
+#   float:             {type: float, low: 1.0e-4, high: 1.0e-2, log: true}
+search_space:
+  learning_rate: {type: float, low: 1.0e-4, high: 1.0e-2, log: true}
+  batch_size: {type: categorical, choices: [8, 16, 32]}
+  # Ruído em absorbância, desvio sorteado log-uniforme em [min, max] por espectro.
+  # Cuidado ao buscar: menos ruído facilita a tarefa e tende a ganhar
+  noise_std_min: 0.001
+  noise_std_max: 0.02
+  # Cuidado ao buscar: latent maior sempre reconstrói melhor e tende a ganhar
+  latent_space: 16
+  # Máscara (só usada com mask_channel: true). Não busque mask_p: a loss de
+  # teste não tem lacunas, então mask_p: 0 sempre ganharia
+  mask_p: 0.5
+  mask_min_size: 500
+  mask_max_size: 2000
+  mask_n_windows: 2
+  pooling_output_size: {type: categorical, choices: [1024, 2048, 4096, 8192]}
+
+  # Arquitetura do encoder: num_blocks blocos; os canais começam em base_channels
+  # e dobram a cada bloco. kernels e num_layers iguais em todos os blocos
+  num_blocks: {type: int, low: 1, high: 4}
+  base_channels: {type: categorical, choices: [4, 8, 16]}
+  kernel_size_conv: {type: categorical, choices: [3, 5, 7]}
+  num_layers: {type: int, low: 1, high: 3}
+  kernel_size_max_pooling: 2
