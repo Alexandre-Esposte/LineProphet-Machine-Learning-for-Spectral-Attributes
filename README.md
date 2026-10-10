@@ -9,13 +9,14 @@ pacote reutilizável e dois diretórios de projeto que o consomem:
 
 | Diretório | O quê |
 |---|---|
-| [`packages/spectra_hitran/`](packages/spectra_hitran/README.md) | **A biblioteca.** Download HITRAN, simulação de espectros, detecção de linhas, ajuste de Voigt. Único pacote instalável/importável do monorepo. |
+| [`packages/spectra_hitran/`](packages/spectra_hitran/README.md) | **A biblioteca.** Download HITRAN, simulação de espectros, detecção de linhas, ajuste de Voigt. |
 | [`data_eng/`](data_eng/README.md) | **Engenharia de dados.** Scripts/notebooks que chamam `spectra_hitran` pra baixar, simular e organizar espectros, gravando os datasets em `database/`. |
-| [`data_science/`](data_science/README.md) | **Ciência de dados.** Notebook de modelagem (ML) que consome os espectros/datasets gerados por `data_eng`. |
+| [`data_science/`](data_science/README.md) | **Ciência de dados.** Autoencoder convolucional para remover ruído de espectros, com scripts de treino e busca de hiperparâmetros sobre os datasets de `data_eng`. |
 
-`data_eng` e `data_science` não são bibliotecas — são só scripts/notebooks
-com suas próprias dependências declaradas (`[tool.uv] package = false`); a
-lógica científica reutilizável mora inteiramente em `spectra_hitran`.
+`data_eng` é só scripts/notebooks (`[tool.uv] package = false`).
+`data_science` instala seus próprios módulos (`convolutional_autoencoder` e
+`common`) para uso nos seus scripts. A lógica espectroscópica reutilizável
+fica em `spectra_hitran`.
 
 ## Instalação
 
@@ -55,7 +56,7 @@ pyproject.toml            # raiz do workspace uv (sem código próprio)
 packages/
   spectra_hitran/          # a biblioteca: download/simulação/detecção/ajuste
 data_eng/                  # scripts/notebooks: geração dos datasets a partir da lib
-data_science/               # notebook: modelagem ML sobre os datasets gerados
+data_science/               # autoencoder: modelo, treino e busca de hiperparâmetros
 database/, hitran_database/ # dados gerados/baixados, compartilhados, git-ignorados
 ```
 
