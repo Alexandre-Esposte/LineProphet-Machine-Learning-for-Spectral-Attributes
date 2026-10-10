@@ -1,5 +1,5 @@
 from convolutional_autoencoder import AutoencoderDataSet, ConvolutionalAutoencoder
-from common import fit, get_device, make_dataloaders, GaussianNoise, MaskWindows, BaselineShift, Compose, AbsorptionMSE, build_loss
+from common import fit, get_device, make_dataloaders, GaussianNoise, MaskWindows, BaselineShift, SyntheticContamination, Compose, AbsorptionMSE, build_loss
 
 import yaml
 import torch
@@ -89,10 +89,11 @@ def main():
                                      f"comprimento após o encoder ({encoder_length})")
 
         # Ruído antes da máscara, para a região apagada ficar zerada de fato
-        # Linha de base (fixa por estudo) antes do ruído
+        # Linha de base e contaminação (fixas por estudo) antes do ruído
         augmentations = [BaselineShift(offset_max = configs['baseline_shift']['offset_max'],
                                        slope_max = configs['baseline_shift']['slope_max'],
                                        p = configs['baseline_shift']['p']),
+                         SyntheticContamination(**configs['contamination']),
                          GaussianNoise(std_min = params['noise_std_min'], std_max = params['noise_std_max'])]
         if configs['mask_channel']:
             augmentations.append(MaskWindows(min_size = params['mask_min_size'],
@@ -171,6 +172,7 @@ def main():
         'noise_std_max': params['noise_std_max'],
         'loss': configs['loss'],
         'baseline_shift': configs['baseline_shift'],
+        'contamination': configs['contamination'],
         'mask_channel': configs['mask_channel'],
         'mask_p': params['mask_p'],
         'mask_min_size': params['mask_min_size'],

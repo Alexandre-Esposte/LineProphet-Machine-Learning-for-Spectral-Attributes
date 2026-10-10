@@ -117,6 +117,105 @@ class BaselineShift:
         return shifted
 
 
+class SyntheticContamination:
+    """Data augmentation: soma linhas pseudo-Voigt aleatórias a um canal (contaminação sintética).
+
+    Com probabilidade `p`, soma N linhas (N uniforme em [n_lines_min, n_lines_max]) ao canal de
+    absorção, imitando linhas de outras moléculas. Com probabilidade `cluster_p` as linhas ficam
+    agrupadas numa sub-região de largura log-uniforme em [cluster_width_min, cluster_width_max] cm⁻¹,
+    como uma banda; senão, espalhadas pela janela. Larguras lorentziana e gaussiana (HWHM, cm⁻¹) e a
+    altura relativa ao maior pico do espectro são log-uniformes. Aplicado só em X, na escala bruta:
+    y fica sem as linhas, e o modelo aprende a ignorar o que não é da molécula. Absorbâncias se
+    somam (Beer-Lambert), então a mistura é física. Supõe número de onda crescente no canal `wn_channel`.
+    """
+
+    def __init__(self, p: float = 0.5, n_lines_min: int = 1, n_lines_max: int = 150, cluster_p: float = 0.5,
+                 cluster_width_min: float = 20.0, cluster_width_max: float = 200.0,
+                 lorentz_hwhm_min: float = 0.005, lorentz_hwhm_max: float = 0.3,
+                 gauss_hwhm_min: float = 0.003, gauss_hwhm_max: float = 0.02,
+                 rel_height_min: float = 0.01, rel_height_max: float = 1.5,
+                 wing: float = 50.0, channel: int = 1, wn_channel: int = 0):
+        """
+        Args:
+            p: probabilidade de contaminar o espectro.
+            n_lines_min, n_lines_max: faixa do número de linhas.
+            cluster_p: probabilidade de agrupar as linhas numa sub-região (banda).
+            cluster_width_min, cluster_width_max: largura da sub-região, em cm⁻¹.
+            lorentz_hwhm_min, lorentz_hwhm_max: meia largura lorentziana (pressão), em cm⁻¹.
+            gauss_hwhm_min, gauss_hwhm_max: meia largura gaussiana (Doppler), em cm⁻¹.
+            rel_height_min, rel_height_max: altura do pico relativa ao maior pico do espectro.
+            wing: cada linha só é calculada até `wing` meias larguras do centro (custo).
+            channel: canal que recebe as linhas (absorção).
+            wn_channel: canal de número de onda, usado para posicionar as linhas em cm⁻¹.
+        """
+        if not 1 <= n_lines_min <= n_lines_max:
+            raise ValueError("É preciso 1 <= n_lines_min <= n_lines_max.")
+        for lo, hi in [(cluster_width_min, cluster_width_max), (lorentz_hwhm_min, lorentz_hwhm_max),
+                       (gauss_hwhm_min, gauss_hwhm_max), (rel_height_min, rel_height_max)]:
+            if not 0 < lo <= hi:
+                raise ValueError("Faixas log-uniformes precisam de 0 < mínimo <= máximo.")
+        self.p = p
+        self.n_lines_min = n_lines_min
+        self.n_lines_max = n_lines_max
+        self.cluster_p = cluster_p
+        self.cluster_width = (cluster_width_min, cluster_width_max)
+        self.lorentz_hwhm = (lorentz_hwhm_min, lorentz_hwhm_max)
+        self.gauss_hwhm = (gauss_hwhm_min, gauss_hwhm_max)
+        self.rel_height = (rel_height_min, rel_height_max)
+        self.wing = wing
+        self.channel = channel
+        self.wn_channel = wn_channel
+
+    @staticmethod
+    def _log_uniform(bounds: tuple, n: int) -> torch.Tensor:
+        lo, hi = math.log(bounds[0]), math.log(bounds[1])
+        return torch.exp(lo + (hi - lo) * torch.rand(n))
+
+    def __call__(self, spectrum: torch.Tensor) -> torch.Tensor:
+        if torch.rand(1).item() >= self.p:
+            return spectrum
+
+        x = spectrum[self.wn_channel]
+        y = spectrum[self.channel]
+        x_min, x_max = x[0].item(), x[-1].item()
+        # Altura de referência: maior pico acima da linha de base (mediana)
+        ref = max((y.max() - y.median()).item(), 1e-3)
+
+        n = int(torch.randint(self.n_lines_min, self.n_lines_max + 1, (1,)))
+        if torch.rand(1).item() < self.cluster_p:
+            width = self._log_uniform(self.cluster_width, 1).item()
+            center = x_min + (x_max - x_min) * torch.rand(1).item()
+            lo, hi = max(x_min, center - width / 2), min(x_max, center + width / 2)
+        else:
+            lo, hi = x_min, x_max
+        centers = lo + (hi - lo) * torch.rand(n)
+        gamma_l = self._log_uniform(self.lorentz_hwhm, n)
+        gamma_g = self._log_uniform(self.gauss_hwhm, n)
+        heights = ref * self._log_uniform(self.rel_height, n)
+
+        # Pseudo-Voigt (Thompson et al., 1987): largura total e mistura η a partir das FWHM
+        f_l, f_g = 2 * gamma_l, 2 * gamma_g
+        f_v = (f_g ** 5 + 2.69269 * f_g ** 4 * f_l + 2.42843 * f_g ** 3 * f_l ** 2
+               + 4.47163 * f_g ** 2 * f_l ** 3 + 0.07842 * f_g * f_l ** 4 + f_l ** 5) ** 0.2
+        r = f_l / f_v
+        eta = 1.36603 * r - 0.47719 * r ** 2 + 0.11116 * r ** 3
+        gamma_v = f_v / 2
+
+        contaminated = spectrum.clone()
+        out = contaminated[self.channel]
+        # Cada linha só é calculada numa janela local de ±wing meias larguras
+        starts = torch.searchsorted(x, centers - self.wing * gamma_v)
+        ends = torch.searchsorted(x, centers + self.wing * gamma_v)
+        for k in range(n):
+            s, e = int(starts[k]), int(ends[k])
+            if e <= s:
+                continue
+            u = ((x[s:e] - centers[k]) / gamma_v[k]) ** 2
+            profile = eta[k] / (1 + u) + (1 - eta[k]) * torch.exp(-math.log(2) * u)
+            out[s:e] += (heights[k] * profile).to(out.dtype)
+        return contaminated
+
+
 class Compose:
     """Aplica uma sequência de augmentations, na ordem dada."""
 
