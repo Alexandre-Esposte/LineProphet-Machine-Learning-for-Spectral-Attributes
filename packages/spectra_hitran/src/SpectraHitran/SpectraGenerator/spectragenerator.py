@@ -143,7 +143,8 @@ class SpectraGenerator:
     def simulateSpectra(self, moleculeName: str, diluent: Dict[str, float], enviroment: Dict[str, float],
                        step: float = 0.01, profile: Profile = 'voigt', quantity: str = 'absorbance',
                        convolve: bool = True, resolution: float = 0.07, af_wing: Optional[float] = None,
-                       slit_function: Callable[..., Any] = SLIT_MICHELSON, wavenumber_wing: float = 50) -> None:
+                       slit_function: Callable[..., Any] = SLIT_MICHELSON, wavenumber_wing: float = 50,
+                       wavenumber_range: Optional[Tuple[float, float]] = None) -> None:
         """Simula um espectro e, opcionalmente, convolui com a fenda do instrumento.
 
         Resultado em `self.spectra['wavenumbers']` / `self.spectra['absorption']`.
@@ -168,7 +169,11 @@ class SpectraGenerator:
                 `'transmittance'`, `'absorptance'` (1-transmitância),
                 `'absorbance'` (profundidade ótica de Beer-Lambert, `-ln(T) = α·l`, padrão) ou `'radiance'`.
             convolve: se `False`, pula a convolução e guarda o espectro cru
-                (útil para seção de choque teórica). Padrão `True`.
+                (útil para seção de choque teórica). Padrão `True`. Para
+                transmitância, absorptância e absorbância, a convolução é feita
+                na transmitância (como no instrumento) e a grandeza é derivada
+                depois; nas demais, na própria grandeza. A grade de saída é
+                sempre a mesma do cálculo, independente da resolução.
             resolution: resolução (cm⁻¹) da fenda instrumental (`Resolution` do
                 HAPI). Só usado se `convolve=True`. Padrão `0.07`.
             af_wing: alcance (cm⁻¹) do kernel da fenda considerado na convolução
@@ -190,6 +195,9 @@ class SpectraGenerator:
                 SLIT_GAUSSIAN`, etc.) — são funções do HAPI, não strings.
             wavenumber_wing: alcance (cm⁻¹) considerado ao redor de cada linha
                 no cálculo do perfil (`WavenumberWing` do HAPI). Padrão `50`.
+            wavenumber_range: `(min, max)` em cm⁻¹ da grade do espectro
+                (`WavenumberRange` do HAPI). Padrão `None` → faixa das linhas da
+                tabela local. Linhas fora da faixa ainda contribuem com a asa.
 
         Exemplos:
             >>> gen.simulateSpectra('HCl', {'air': 0.8, 'self': 0.2}, {'p': 1, 'T': 296, 'l': 10})
@@ -228,34 +236,40 @@ class SpectraGenerator:
                                                                 Environment=enviroment,
                                                                 HITRAN_units=(quantity == 'cross_section'),
                                                                 WavenumberStep=step,
-                                                                WavenumberWing=wavenumber_wing)
+                                                                WavenumberWing=wavenumber_wing,
+                                                                WavenumberRange=wavenumber_range)
 
-            if quantity == 'coefficient' or quantity == 'cross_section':
-                absorption = absorptioncoef
-            elif quantity == 'transmittance':
-                _, absorption = transmittanceSpectrum(wavenumbers, absorptioncoef, Environment=enviroment)
-            elif quantity == 'absorptance':
-                _, absorption = absorptionSpectrum(wavenumbers, absorptioncoef, Environment=enviroment)
-            elif quantity == 'radiance':
-                _, absorption = radianceSpectrum(wavenumbers, absorptioncoef, Environment=enviroment)
-            else:  # 'absorbance' (default) — profundidade ótica (-ln(T) = α·l), fórmula escrita manualmente.
-                transmitance = np.exp(-absorptioncoef * enviroment['l'])
-                if np.any(transmitance <= 0):
-                    self.diluent_warnings.append(
-                        "absorbância saturada: a transmitância chegou a 0 em pelo menos um ponto "
-                        "(coeficiente de absorção muito alto e/ou caminho ótico 'l' muito longo) "
-                        "— o espectro resultante contém +inf nesses pontos."
-                    )
-                with np.errstate(divide='ignore'):
-                    absorption = -np.log(transmitance)
+            effective_af_wing = af_wing if af_wing is not None else 10 * resolution
 
-            if convolve:
-                effective_af_wing = af_wing if af_wing is not None else 10 * resolution
-                wavenumbers, absorption, _, _, _ = convolveSpectrum(wavenumbers,
-                                                                    absorption,
-                                                                    SlitFunction=slit_function,
-                                                                    Resolution=resolution,
-                                                                    AF_wing=effective_af_wing)
+            def instrument(values: np.ndarray, pad_value: float) -> np.ndarray:
+                return self._convolve_on_grid(wavenumbers, values, pad_value, slit_function, resolution, effective_af_wing)
+
+            if quantity in ('transmittance', 'absorptance', 'absorbance'):
+                # O instrumento convolui a luz que chega ao detector (transmitância);
+                # as outras grandezas são derivadas depois, da transmitância convoluída.
+                transmittance = np.exp(-absorptioncoef * enviroment['l'])
+                if convolve:
+                    transmittance = instrument(transmittance, pad_value=1.0)
+                if quantity == 'transmittance':
+                    absorption = transmittance
+                elif quantity == 'absorptance':
+                    absorption = 1 - transmittance
+                else:  # 'absorbance' (default) — profundidade ótica, -ln(T) (Beer-Lambert com ln)
+                    if np.any(transmittance <= 0):
+                        self.diluent_warnings.append(
+                            "absorbância saturada: a transmitância chegou a 0 em pelo menos um ponto "
+                            "(coeficiente de absorção muito alto e/ou caminho ótico 'l' muito longo) "
+                            "— o espectro resultante contém +inf nesses pontos."
+                        )
+                    with np.errstate(divide='ignore'):
+                        absorption = -np.log(transmittance)
+            else:
+                if quantity == 'radiance':
+                    _, absorption = radianceSpectrum(wavenumbers, absorptioncoef, Environment=enviroment)
+                else:  # 'coefficient' / 'cross_section'
+                    absorption = absorptioncoef
+                if convolve:
+                    absorption = instrument(absorption, pad_value=0.0 if quantity != 'radiance' else float(absorption[0]))
 
             self.spectra['wavenumbers'], self.spectra['absorption'] = wavenumbers, absorption
             self._last_simulation = {'moleculeName': moleculeName, 'quantity': quantity, 'enviroment': enviroment}
@@ -264,6 +278,26 @@ class SpectraGenerator:
             self.spectra['wavenumbers'], self.spectra['absorption'] = None, None
             self._last_simulation = None
             traceback.print_exc()
+
+    @staticmethod
+    def _convolve_on_grid(wavenumbers: np.ndarray, values: np.ndarray, pad_value: float,
+                          slit_function: Callable[..., Any], resolution: float, af_wing: float) -> np.ndarray:
+        """Convolui `values` com a fenda e devolve o resultado na MESMA grade `wavenumbers`.
+
+        O `convolveSpectrum` do HAPI corta `af_wing` de cada borda, o que faria o
+        comprimento do espectro depender da resolução. Por isso o espectro é
+        estendido nas duas pontas com `pad_value` (ex: transmitância 1 = sem
+        absorção) antes da convolução, e o resultado é reamostrado na grade original.
+        """
+        step = wavenumbers[1] - wavenumbers[0]
+        n_pad = int(np.ceil(af_wing / step)) + 2
+        left = wavenumbers[0] - step * np.arange(n_pad, 0, -1)
+        right = wavenumbers[-1] + step * np.arange(1, n_pad + 1)
+        extended_wn = np.concatenate([left, wavenumbers, right])
+        extended = np.concatenate([np.full(n_pad, pad_value), values, np.full(n_pad, pad_value)])
+        conv_wn, conv, _, _, _ = convolveSpectrum(extended_wn, extended, SlitFunction=slit_function,
+                                                  Resolution=resolution, AF_wing=af_wing)
+        return np.interp(wavenumbers, conv_wn, conv)
 
     def _plot_ylabel(self) -> str:
         quantity = self._last_simulation['quantity'] if self._last_simulation else None
