@@ -1,0 +1,52 @@
+# Paths
+train: C:\Users\alexa\OneDrive\Área de Trabalho\LineProphet-Machine-Learning-for-Spectral-Attributes\database\train
+valid: C:\Users\alexa\OneDrive\Área de Trabalho\LineProphet-Machine-Learning-for-Spectral-Attributes\database\valid
+test: C:\Users\alexa\OneDrive\Área de Trabalho\LineProphet-Machine-Learning-for-Spectral-Attributes\database\test
+configs_path: C:\Users\alexa\OneDrive\Área de Trabalho\LineProphet-Machine-Learning-for-Spectral-Attributes\data_science\scripts\train\train_configs.yaml
+save_model_path: C:\Users\alexa\OneDrive\Área de Trabalho\LineProphet-Machine-Learning-for-Spectral-Attributes\data_science\trained_models\
+
+#Atributos dataloader
+batch_size: 16
+num_workers: 4
+
+# Atributos para treinamento
+learning_rate: 0.001
+epochs: 10
+
+# Ruído (data augmentation), em absorbância: desvio sorteado log-uniforme
+# em [noise_std_min, noise_std_max] por espectro (iguais = desvio fixo)
+noise_std_min: 0.001
+noise_std_max: 0.02
+
+# Linha de base (data augmentation): soma offset + inclinação aleatórios só na
+# entrada; offset em [-offset_max, offset_max] e rampa de ponta a ponta em
+# [-slope_max, slope_max] (absorbância), com probabilidade p
+baseline_shift: {p: 0.5, offset_max: 0.1, slope_max: 0.05}
+
+# Loss de treino (SpectralLoss; o teste usa sempre o MSE da absorção, para comparar configs):
+#   alpha: peso do pico, 1 + alpha * A/max(A) por espectro
+#   beta: peso da derivada (0 = desligado)
+#   gamma: peso do erro de área (0 = desligado)
+loss: {alpha: 5, beta: 0, gamma: 0}
+
+# Máscara (data augmentation): zera janelas da absorção e acrescenta um 3º canal
+# de entrada (1 = apagado). Com mask_channel: true, o 1º bloco da arquitetura
+# precisa de in_channels: 3. mask_p: 0 mantém o canal (sempre zero) sem mascarar
+mask_channel: true
+mask_p: 0.5
+# Tamanho das janelas em pontos (~0.01 cm-1 por ponto; linhas do HCl a ~2000 pontos)
+mask_min_size: 500
+mask_max_size: 2000
+mask_n_windows: 2
+
+# Arquitetura do modelo => (in_channels, out_channels, kernel_size_max_pooling, kernel_size_conv, num_layers)
+latent_space: 16
+pooling_output_size: 8192  
+
+
+model_architecture:
+  - {in_channels: 3,  out_channels: 4,  kernel_size_max_pooling: 2, kernel_size_conv: 3, num_layers: 1}
+  - {in_channels: 4,  out_channels: 8, kernel_size_max_pooling: 2, kernel_size_conv: 3, num_layers: 1}
+
+
+
