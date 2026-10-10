@@ -1,11 +1,12 @@
 from convolutional_autoencoder import AutoencoderDataSet, ConvolutionalAutoencoder
-from common import fit, get_device, make_dataloaders, GaussianNoise, MaskWindows, BaselineShift, SyntheticContamination, Compose, AbsorptionMSE, build_loss
+from common import fit, get_device, make_dataloaders, GaussianNoise, MaskWindows, BaselineShift, SyntheticContamination, Compose, absorption_loss
 
 import yaml
 import torch
 import optuna
 import logging
 
+from functools import partial
 from pathlib import Path
 from typing import Any
 from torch.utils.tensorboard import SummaryWriter
@@ -115,7 +116,7 @@ def main():
                                          output_channels = OUTPUT_CHANNELS)
         model.to(device)
         otimizador = torch.optim.Adam(params = model.parameters(), lr = params['learning_rate'])
-        loss_fn = build_loss(configs['loss'], mean, std)
+        loss_fn = partial(absorption_loss, mean = float(mean[1]), std = float(std[1]), **configs['loss'])
 
         logger.info(f"Trial {trial.number}: {params}")
 
@@ -129,7 +130,7 @@ def main():
         try:
             return fit(model, train_dataloader, valid_dataloader, loss_fn, otimizador, device,
                        epochs = configs['epochs'], writer = writer, epoch_callback = report, logger = logger,
-                       eval_loss_fn = AbsorptionMSE())
+                       eval_loss_fn = absorption_loss)
         except torch.cuda.OutOfMemoryError:
             # Config grande demais para a GPU: descarta o trial em vez de derrubar a busca
             raise optuna.TrialPruned("CUDA out of memory")

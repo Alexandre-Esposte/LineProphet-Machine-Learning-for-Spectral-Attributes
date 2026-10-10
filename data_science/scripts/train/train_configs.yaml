@@ -42,11 +42,10 @@ contamination:
   rel_height_min: 0.01
   rel_height_max: 1.5
 
-# Loss de treino (SpectralLoss; o teste usa sempre o MSE da absorção, para comparar configs):
-#   alpha: peso do pico, 1 + alpha * A/max(A) por espectro
-#   beta: peso da derivada (0 = desligado)
-#   gamma: peso do erro de área (0 = desligado)
-loss: {alpha: 5, beta: 0, gamma: 0}
+# Loss de treino (absorption_loss; validação e teste usam sempre o MSE puro, para comparar configs):
+#   alpha: peso do pico, 1 + alpha * A/max(A) por espectro (0 = sem peso)
+#   delta: peso da penalidade de absorbância prevista negativa (0 = desligada)
+loss: {alpha: 5, delta: 0}
 
 # Máscara (data augmentation): zera janelas da absorção e acrescenta um 3º canal
 # de entrada (1 = apagado). Com mask_channel: true, o 1º bloco da arquitetura

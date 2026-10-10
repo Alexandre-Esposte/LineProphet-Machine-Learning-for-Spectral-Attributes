@@ -20,7 +20,7 @@ O `torch` vem do índice CUDA 12.6 (configurado no `pyproject.toml` da raiz).
 |---|---|
 | `src/convolutional_autoencoder/` | `ConvolutionalAutoencoder` (encoder → vetor latente → decoder) e `AutoencoderDataSet` (lê os `.npz` e normaliza por canal). |
 | `src/common/train_and_test.py` | `fit` (loop de épocas, guarda a melhor época, TensorBoard opcional), `train`, `test`, `make_dataloaders`, `get_device`. |
-| `src/common/losses.py` | `AbsorptionMSE` (métrica de validação) e `SpectralLoss` (loss de treino, montada com `build_loss`). |
+| `src/common/losses.py` | `absorption_loss`: MSE da absorção, com peso opcional nos picos (`alpha`) e penalidade opcional de absorbância negativa (`delta`) para o treino; sem eles é a métrica de validação. |
 | `src/common/transforms.py` | Augmentations aplicadas só na entrada: `GaussianNoise`, `BaselineShift`, `MaskWindows`, `Compose`. |
 | `scripts/train/` | Treino do modelo (`train.py` + `train_configs.yaml`). |
 | `scripts/search/` | Busca de hiperparâmetros com Optuna (`search.py` + `search_configs.yaml`). |
@@ -31,7 +31,7 @@ podem ser importados diretamente:
 
 ```python
 from convolutional_autoencoder import ConvolutionalAutoencoder, AutoencoderDataSet
-from common import fit, build_loss, GaussianNoise
+from common import fit, absorption_loss, GaussianNoise
 ```
 
 ## Dados
