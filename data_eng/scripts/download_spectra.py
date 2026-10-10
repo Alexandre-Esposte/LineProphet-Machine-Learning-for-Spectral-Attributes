@@ -1,5 +1,4 @@
-"""Baixa dados de linha do HITRAN pra uma molécula, salvando no cache local
-(`database/hitran_database/`, compartilhado com `spectra-generator.py`).
+"""Baixa dados de linha do HITRAN para `database/hitran_database/`.
 
 Uso:
     uv run --package data-eng python data_eng/scripts/download_spectra.py \\

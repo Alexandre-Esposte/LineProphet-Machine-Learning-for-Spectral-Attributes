@@ -2,11 +2,8 @@ import logging
 import multiprocessing
 import os
 
-# Limita threads internas de BLAS/OpenMP por processo ANTES de importar numpy —
-# com N_PROCESSES processos rodando ao mesmo tempo, cada um tentando abrir seu
-# próprio pool de threads pra álgebra linear, a CPU fica sobre-inscrita (N
-# processos x M threads cada) e cada simulação fica ordens de magnitude mais
-# lenta do que rodando sozinha. Cada processo aqui já É a unidade de paralelismo.
+# 1 thread de BLAS/OpenMP por processo (definido antes de importar numpy):
+# o paralelismo vem da Pool; threads extras sobrecarregam a CPU.
 os.environ.setdefault('OMP_NUM_THREADS', '1')
 os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
 os.environ.setdefault('MKL_NUM_THREADS', '1')
@@ -14,17 +11,17 @@ os.environ.setdefault('NUMEXPR_NUM_THREADS', '1')
 
 import numpy as np
 from pathlib import Path
-from hapi import SLIT_MICHELSON, SLIT_TRIANGULAR
+from hapi import SLIT_MICHELSON, SLIT_TRIANGULAR, LOCAL_TABLE_CACHE
 from SpectraHitran.SpectraGenerator.spectragenerator import SpectraGenerator
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s', datefmt='%H:%M:%S')
 logger = logging.getLogger('spectra-generator')
 
 
-ROOT_DATABASE_PATH = Path(__file__).resolve().parents[2] / 'database' / 'spectra'
+ROOT_DATABASE_PATH = Path(__file__).resolve().parents[2] / 'database'
 
 # pressao em atm
-PRESSURE_MIN = 0.1
+PRESSURE_MIN = 0.001
 PRESSURE_MAX = 1
 
 # temperatura em K
@@ -32,21 +29,37 @@ TEMPERATURE_MIN = 273
 TEMPERATURE_MAX =  400
 
 #caminho optico em cm
-OPTICAL_PATH_MIN = 0.5
+OPTICAL_PATH_MIN = 0.1
 OPTICAL_PATH_MAX = 10
 
-# Sizes 
-QTE_TRAIN = 10_000
-QTE_VALID = 1000
+# Total de espectros, dividido igualmente entre as janelas e depois entre os
+# splits (SPLIT_FRACTIONS deve somar 1).
+QTE_TOTAL = 10_000
+SPLIT_FRACTIONS = {'train': 0.8, 'valid': 0.1, 'test': 0.1}
 
 #Configs de simulacao
 STEP_MIN = 0.01
 STEP_MAX = 0.01
-MOLECULE_DATABASE_NAME_REFERENCE = 'hcl'
+# Janelas: nome -> (tabela em database/hitran_database, centro em cm⁻¹).
+# Largura fixa WINDOW_WIDTH (cm⁻¹) => todos os espectros têm o mesmo nº de pontos.
+# Centros = meio de cada banda a 400 K.
+WINDOW_WIDTH = 900
+WINDOWS = {
+    'hcl_10': ('hcl', 2818),
+    'hcl_20': ('hcl', 5551),
+    'co_10':  ('co',  2126),
+    'co_20':  ('co',  4211),
+    'hf_10':  ('hf',  3896),
+    'hf_20':  ('hf',  7602),
+}
+# Aviso de banda cortada (ver check_windows): linha fora da janela, até
+# BAND_CUT_MARGIN cm⁻¹ da borda, com intensidade > BAND_CUT_THRESHOLD x a mais forte.
+BAND_CUT_THRESHOLD = 1e-3
+BAND_CUT_MARGIN = 100
 DILUENT = {'self': 1}
 
 # Configs para simular função aparelho
-CONVOLVE = True
+CONVOLVE = False
 RESOLUTION_MIN = 0.02
 RESOLUTION_MAX = 5
 SLIT_FUNCTIONS = [SLIT_MICHELSON, SLIT_TRIANGULAR]
@@ -58,43 +71,105 @@ N_PROCESSES = max(1, os.cpu_count() - 1)
 generator = SpectraGenerator()
 
 
+def log_uniform(low: float, high: float, n: int) -> np.ndarray:
+    """Amostra `n` valores log-uniformes em [low, high]."""
+    return np.exp(np.random.uniform(np.log(low), np.log(high), n))
+
+
 def sample_parameters(n: int) -> dict:
-    """Amostra uniformemente `n` valores de cada parâmetro que tem MIN/MAX definido,
-    e sorteia (com reposição, `np.random.choice`) uma função de fenda de
-    `SLIT_FUNCTIONS` pra cada amostra."""
+    """Sorteia `n` conjuntos de parâmetros. Pressão, caminho ótico e resolução
+    são log-uniformes; temperatura e passo, uniformes."""
     return {
-        'pressure':    np.random.uniform(PRESSURE_MIN, PRESSURE_MAX, n),
+        'pressure':    log_uniform(PRESSURE_MIN, PRESSURE_MAX, n),
         'temperature': np.random.uniform(TEMPERATURE_MIN, TEMPERATURE_MAX, n),
-        'optical_path': np.random.uniform(OPTICAL_PATH_MIN, OPTICAL_PATH_MAX, n),
+        'optical_path': log_uniform(OPTICAL_PATH_MIN, OPTICAL_PATH_MAX, n),
         'step':        np.random.uniform(STEP_MIN, STEP_MAX, n),
-        'resolution':  np.random.uniform(RESOLUTION_MIN, RESOLUTION_MAX, n),
+        'resolution':  log_uniform(RESOLUTION_MIN, RESOLUTION_MAX, n),
         'slit_function': np.random.choice(SLIT_FUNCTIONS, n),
     }
 
 
-def ensure_split_dirs(root: Path, molecule: str, splits: tuple) -> None:
-    """Garante que a pasta de saída de cada split (train/valid/...) existe dentro
-    de `root/<molecule>/`, criando quando faltar — assim cada split fica separado
-    em sua própria subpasta, e cada molécula na sua, em vez de tudo junto (rodar
-    o script pra moléculas diferentes não mistura nem sobrescreve nada)."""
+def split_counts(total: int, keys: list) -> dict:
+    """Divide `total` igualmente entre `keys`; o resto vai para as primeiras."""
+    base, rest = divmod(total, len(keys))
+    return {k: base + (1 if i < rest else 0) for i, k in enumerate(keys)}
+
+
+def plan_sizes() -> dict:
+    """Nº de espectros por (janela, split)."""
+    if not np.isclose(sum(SPLIT_FRACTIONS.values()), 1):
+        raise ValueError(f"SPLIT_FRACTIONS deve somar 1, soma {sum(SPLIT_FRACTIONS.values())}.")
+    sizes = {}
+    for window, n_window in split_counts(QTE_TOTAL, list(WINDOWS)).items():
+        n_split = {split: int(n_window * frac) for split, frac in SPLIT_FRACTIONS.items()}
+        n_split['train'] += n_window - sum(n_split.values())  # sobra do arredondamento
+        for split, n in n_split.items():
+            sizes[(window, split)] = n
+    return sizes
+
+
+def window_range(window: str) -> tuple:
+    """(início, fim) da janela em cm⁻¹."""
+    _, center = WINDOWS[window]
+    return center - WINDOW_WIDTH / 2, center + WINDOW_WIDTH / 2
+
+
+def check_windows(database_path: Path) -> None:
+    """Valida as janelas: erro se começarem em <= 0 cm⁻¹ ou se a tabela não
+    foi baixada; aviso se a janela cortar a banda em TEMPERATURE_MAX."""
+    bad = [w for w in WINDOWS if window_range(w)[0] <= 0]
+    if bad:
+        raise ValueError(f"Janelas começando em número de onda <= 0: {bad}.")
+    missing = sorted({table for table, _ in WINDOWS.values()} - {p.stem for p in database_path.glob('*.data')})
+    if missing:
+        raise FileNotFoundError(f"Moléculas sem tabela em {database_path}: {missing}.")
+
+    c2 = 1.4387769  # cm·K, 2ª constante de radiação (hc/k)
+    for window, (table, _) in WINDOWS.items():
+        data = LOCAL_TABLE_CACHE[table]['data']
+        nu, sw, elower = (np.asarray(data[k]) for k in ('nu', 'sw', 'elower'))
+        # Intensidade relativa em TEMPERATURE_MAX (a função de partição cancela na razão)
+        strength = sw * np.exp(-c2 * elower * (1 / TEMPERATURE_MAX - 1 / 296))
+        start, end = window_range(window)
+        inside = (nu >= start) & (nu <= end)
+        if not inside.any():
+            logger.warning(f"[{window}] nenhuma linha em {start:.0f}–{end:.0f} cm⁻¹.")
+            continue
+        strong_out = ~inside & (strength > strength[inside].max() * BAND_CUT_THRESHOLD)
+        # Só perto das bordas; mais longe já são outras bandas.
+        below = nu[strong_out & (nu < start) & (nu > start - BAND_CUT_MARGIN)]
+        above = nu[strong_out & (nu > end) & (nu < end + BAND_CUT_MARGIN)]
+        cut = []
+        if below.size:
+            cut.append(f"{below.min():.0f}–{start:.0f}")
+        if above.size:
+            cut.append(f"{end:.0f}–{above.max():.0f}")
+        if cut:
+            logger.warning(f"[{window}] janela {start:.0f}–{end:.0f} cm⁻¹ corta a banda a "
+                           f"{TEMPERATURE_MAX} K: linhas fortes em {', '.join(cut)} cm⁻¹.")
+
+
+def ensure_split_dirs(root: Path, splits) -> None:
+    """Cria `root/<split>/` para cada split, se não existir."""
     for split in splits:
-        split_dir = root / molecule / split
+        split_dir = root / split
         already_existed = split_dir.exists()
         split_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"[{split}] {'já existia' if already_existed else 'criada agora'}: {split_dir}")
 
 
-def build_tasks() -> list:
-    """Monta a lista de tarefas — uma por espectro, treino e validação juntos.
-    Cada tarefa é um dict com os parâmetros da simulação e o `split`, que é
-    quem diz pro processo onde salvar (`ROOT_DATABASE_PATH/<split>/...`)."""
+def build_tasks(sizes: dict) -> list:
+    """Uma tarefa (dict de kwargs de `simulate_and_save`) por espectro.
+    `index` é contínuo dentro de cada split."""
     tasks = []
-    for split, n in (('train', QTE_TRAIN), ('valid', QTE_VALID)):
+    next_index = {split: 0 for split in SPLIT_FRACTIONS}
+    for (window, split), n in sizes.items():
         params = sample_parameters(n)
         for i in range(n):
             tasks.append({
+                'window': window,
                 'split': split,
-                'index': i,
+                'index': next_index[split],
                 'pressure': params['pressure'][i],
                 'temperature': params['temperature'][i],
                 'optical_path': params['optical_path'][i],
@@ -102,47 +177,51 @@ def build_tasks() -> list:
                 'resolution': params['resolution'][i],
                 'slit_function': params['slit_function'][i],
             })
+            next_index[split] += 1
     return tasks
 
 
-def simulate_and_save(split: str, index: int, pressure: float, temperature: float, optical_path: float,
+def simulate_and_save(window: str, split: str, index: int, pressure: float, temperature: float, optical_path: float,
                        step: float, resolution: float, slit_function) -> Path | None:
-    """Simula um espectro pra uma combinação de parâmetros e salva o espectro +
-    metadados num `.npz` em `ROOT_DATABASE_PATH/<split>/`. Retorna o caminho do
-    arquivo salvo, ou `None` se a simulação falhar (amostra é pulada, não
-    derruba o resto da geração)."""
+    """Simula um espectro e salva espectro + metadados em
+    `ROOT_DATABASE_PATH/<split>/*.npz`. Retorna o caminho, ou `None` se falhar."""
+    molecule, _ = WINDOWS[window]
+    window_min, window_max = window_range(window)
     logger.info(
-        f"[{split}] {index} (pid={os.getpid()}) — T={temperature:.2f}K P={pressure:.4f}atm "
+        f"[{split}] {index} {window} (pid={os.getpid()}) — T={temperature:.2f}K P={pressure:.4f}atm "
         f"L={optical_path:.2f}cm step={step:.4f} resolution={resolution:.4f} slit={slit_function.__name__}"
     )
 
     generator.simulateSpectra(
-        MOLECULE_DATABASE_NAME_REFERENCE, DILUENT,
+        molecule, DILUENT,
         {'p': pressure, 'T': temperature, 'l': optical_path},
         step=step, quantity='absorbance', convolve=CONVOLVE, resolution=resolution,
-        slit_function=slit_function,
+        slit_function=slit_function, wavenumber_range=(window_min, window_max),
     )
 
     wavenumbers = generator.spectra['wavenumbers']
     absorption = generator.spectra['absorption']
     if wavenumbers is None or absorption is None or len(wavenumbers) == 0:
         logger.warning(
-            f"[{split}] amostra {index}: simulação falhou ou devolveu espectro vazio "
+            f"[{split}] amostra {index} ({window}): simulação falhou ou devolveu espectro vazio "
             f"(resolution={resolution:.4f} pode estar grande demais pra essa janela de wavenumber), pulando."
         )
         return None
 
     filename = (
-        f"{index:05d}_{MOLECULE_DATABASE_NAME_REFERENCE}_"
+        f"{index:05d}_{window}_"
         f"T{temperature:.2f}K_P{pressure:.4f}atm_L{optical_path:.2f}cm.npz"
     )
-    file_path = ROOT_DATABASE_PATH / MOLECULE_DATABASE_NAME_REFERENCE / split / filename
+    file_path = ROOT_DATABASE_PATH / split / filename
 
     np.savez_compressed(
         file_path,
-        wavenumbers=wavenumbers,
-        absorption=absorption,
-        molecule=MOLECULE_DATABASE_NAME_REFERENCE,
+        wavenumbers=wavenumbers.astype(np.float32),
+        absorption=absorption.astype(np.float32),
+        molecule=molecule,
+        window=window,
+        window_min=window_min,
+        window_max=window_max,
         pressure_atm=pressure,
         temperature_k=temperature,
         optical_path_cm=optical_path,
@@ -161,41 +240,37 @@ def simulate_and_save(split: str, index: int, pressure: float, temperature: floa
 
 
 def _process_task(task: dict) -> tuple:
-    """Roda numa das tarefas de `build_tasks()` — é o que cada processo da
-    Pool executa. Retorna (split, sucesso) pra dar pra contabilizar o
-    progresso por split lá em `main()`."""
+    """Worker da Pool. Retorna (split, sucesso)."""
     file_path = simulate_and_save(**task)
     return task['split'], file_path is not None
 
 
 def main() -> None:
-    ensure_split_dirs(ROOT_DATABASE_PATH, MOLECULE_DATABASE_NAME_REFERENCE, ('train', 'valid'))
+    check_windows(Path(generator.database_path))
+    ensure_split_dirs(ROOT_DATABASE_PATH, SPLIT_FRACTIONS)
 
-    tasks = build_tasks()
-    totals = {'train': QTE_TRAIN, 'valid': QTE_VALID}
-    counts = {'train': 0, 'valid': 0}
+    sizes = plan_sizes()
+    tasks = build_tasks(sizes)
+    totals = {split: sum(n for (_, s), n in sizes.items() if s == split) for split in SPLIT_FRACTIONS}
+    counts = {split: 0 for split in SPLIT_FRACTIONS}
+
+    def summary() -> str:
+        return ', '.join(f"{split} {counts[split]}/{totals[split]}" for split in SPLIT_FRACTIONS)
 
     logger.info(
-        f"=== Iniciando geração de {len(tasks)} espectros "
-        f"(train={QTE_TRAIN}, valid={QTE_VALID}) com {N_PROCESSES} processos ==="
+        f"=== Iniciando geração de {len(tasks)} espectros das janelas {WINDOWS} "
+        f"({', '.join(f'{k}={v}' for k, v in totals.items())}) com {N_PROCESSES} processos ==="
     )
 
-    # spawn (não fork): evita travar quando o worker herda estado de threads do
-    # HAPI/numpy já em uso no processo principal antes do Pool ser criado.
+    # spawn evita travamentos por estado de threads herdado do processo principal.
     with multiprocessing.get_context('spawn').Pool(processes=N_PROCESSES) as pool:
         for i, (split, ok) in enumerate(pool.imap_unordered(_process_task, tasks), start=1):
             if ok:
                 counts[split] += 1
             if i % 100 == 0 or i == len(tasks):
-                logger.info(
-                    f"progresso: {i}/{len(tasks)} processados — "
-                    f"train {counts['train']}/{totals['train']}, valid {counts['valid']}/{totals['valid']}"
-                )
+                logger.info(f"progresso: {i}/{len(tasks)} processados — {summary()}")
 
-    logger.info(
-        f"=== Geração concluída: train {counts['train']}/{totals['train']}, "
-        f"valid {counts['valid']}/{totals['valid']} ==="
-    )
+    logger.info(f"=== Geração concluída: {summary()} ===")
 
 
 if __name__ == "__main__":
