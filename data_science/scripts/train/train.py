@@ -1,11 +1,12 @@
 from convolutional_autoencoder import AutoencoderDataSet, ConvolutionalAutoencoder
-from common import fit, test, get_device, make_dataloaders, GaussianNoise, MaskWindows, BaselineShift, SyntheticContamination, Compose, AbsorptionMSE, build_loss
+from common import fit, test, get_device, make_dataloaders, GaussianNoise, MaskWindows, BaselineShift, SyntheticContamination, Compose, absorption_loss
 
 import yaml
 import torch
 import logging
 
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
 
@@ -94,8 +95,9 @@ def main():
                                   lr = configs['learning_rate'])
 
     # Loss de treino do yaml; validação e teste usam sempre o MSE da absorção
-    loss_fn = build_loss(configs['loss'], train_dataset.mean, train_dataset.std)
-    eval_loss_fn = AbsorptionMSE()
+    loss_fn = partial(absorption_loss, mean = float(train_dataset.mean[1]), std = float(train_dataset.std[1]),
+                      **configs['loss'])
+    eval_loss_fn = absorption_loss
 
     #Iniciando writer do tensorboard
     # Um subdiretório por execução, para os runs não se misturarem no TensorBoard

@@ -13,9 +13,9 @@ epochs: 5
 # null = histórico só em memória. Ex: sqlite:///search.db para salvar em arquivo e poder retomar
 storage: null
 
-# Loss de treino (SpectralLoss, fixa por estudo; parâmetros em common/losses.py).
+# Loss de treino (absorption_loss, fixa por estudo; alpha e delta em common/losses.py).
 # O objetivo do Optuna é sempre o MSE da absorção na validação
-loss: {alpha: 5, beta: 0, gamma: 0}
+loss: {alpha: 5, delta: 0}
 
 # Linha de base (data augmentation): soma offset + inclinação aleatórios só na
 # entrada; offset em [-offset_max, offset_max] e rampa de ponta a ponta em
