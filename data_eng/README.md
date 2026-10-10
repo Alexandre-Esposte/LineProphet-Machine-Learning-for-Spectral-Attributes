@@ -1,63 +1,48 @@
 # data_eng
 
-Scripts e notebooks de **engenharia de dados espectrais**: usam a biblioteca
-[`spectra-hitran`](../packages/spectra_hitran/README.md) para baixar dados
-de linha do HITRAN, simular espectros e organizar tudo em datasets
-(`../database/`) consumidos pelo pacote irmão
-[`data_science`](../data_science/README.md).
-
-Este diretório **não é uma biblioteca**: não tem `src/`, não é instalado
-como pacote importável — é um membro do workspace uv só para declarar suas
-dependências e rodar scripts/notebooks (`[tool.uv] package = false` no
-`pyproject.toml`). Toda a lógica reutilizável vive em `spectra-hitran`.
+Scripts para baixar dados do HITRAN e gerar os datasets de espectros simulados
+em `../database/`, usados por [`data_science`](../data_science/README.md).
+Toda a lógica reutilizável está em [`spectra-hitran`](../packages/spectra_hitran/README.md);
+este diretório não é um pacote instalável.
 
 ## Instalação
 
-Requer Python 3.12 e [`uv`](https://docs.astral.sh/uv/). A partir da raiz do
-monorepo:
+Na raiz do monorepo (Python 3.12 + [`uv`](https://docs.astral.sh/uv/)):
 
 ```bash
 uv sync --package data-eng
 ```
 
-(ou `uv sync` na raiz, que instala o workspace inteiro — ver
-[README da raiz](../README.md)).
+## Uso
 
-## Estrutura
-
-| Caminho | O quê |
-|---|---|
-| `scripts/download_spectra.py` | CLI para baixar dados de linha do HITRAN de uma molécula. Rodar manualmente antes do `spectra-generator.py` (que não baixa nada sozinho — assume que os dados já estão em `database/hitran_database/`). |
-| `scripts/spectra-generator.py` | **CLI atual** para gerar dataset de espectros simulados (treino/validação): salva o espectro bruto (wavenumbers/absorção) + metadados (temperatura, pressão, caminho ótico, molécula, wavenumber min/max...) em `.npz`, sem separar linhas nem calcular features. Config por constantes no topo do arquivo (não por flags de linha de comando) — edite as constantes e rode. Paraleliza com `multiprocessing.Pool` (`N_PROCESSES`). |
-| `nbs/teste_download.ipynb` | Notebook de teste de download, atualizado com a API atual de `spectra-hitran`. |
-| `nbs/selfBroadeningHCl.ipynb` | Notebook legado (usa `BroadeningProcessing`, API removida) — pendente de avaliação/limpeza. |
-
-> `nbs/selfBroadeningHCl.ipynb` é anterior à reformulação da lib
-> (`spectra-hitran`) e referencia uma API já removida
-> (`BroadeningProcessing`) — ver `TODO.md` na raiz. Não corrigir sem pedido
-> explícito.
-
-## Uso rápido
-
-`spectra-generator.py` não baixa a molécula — isso é feito à parte (manualmente
-ou via `download_spectra.py`) antes de rodar:
+1. Baixe as moléculas (salvas em `database/hitran_database/`):
 
 ```bash
-uv run --package data-eng python data_eng/scripts/download_spectra.py \
-    --name hcl --isotopes 52,53 --range 5200,5900
+uv run --package data-eng python data_eng/scripts/download_spectra.py --name hcl --isotopes 52,53 --range 5200,5900
+```
 
+2. Gere o dataset:
+
+```bash
 uv run --package data-eng python data_eng/scripts/spectra-generator.py
 ```
 
-Configuração (faixas de pressão/temperatura/caminho ótico, `QTE_TRAIN`/`QTE_VALID`,
-molécula, diluente, `N_PROCESSES` etc.) fica nas constantes no topo de
-`spectra-generator.py` — edite o arquivo direto pra mudar.
+A configuração do gerador (janelas, faixas de P/T/caminho ótico, `QTE_TOTAL`,
+`SPLIT_FRACTIONS`, `N_PROCESSES` etc.) fica nas constantes no topo de
+`spectra-generator.py`.
 
-Por código:
+## Saída
 
-```python
-from SpectraHitran.SpectraGenerator.spectragenerator import SpectraGenerator
-```
+Um `.npz` por espectro em `database/<split>/` (`train`, `valid`, `test`), com
+todas as janelas misturadas. Cada arquivo contém `wavenumbers` e `absorption`
+(float32) e os metadados da simulação (molécula, janela, pressão, temperatura,
+caminho ótico, resolução etc.).
 
-`spectra-hitran` é dependência de workspace deste pacote, então fica
-importável direto em qualquer script/notebook rodado com `uv run`.
+## Estrutura
+
+| Caminho | Descrição |
+|---|---|
+| `scripts/download_spectra.py` | Baixa dados de linha de uma molécula do HITRAN. |
+| `scripts/spectra-generator.py` | Gera os espectros simulados em paralelo. |
+| `nbs/teste_download.ipynb` | Exemplo de download com a API atual. |
+| `nbs/selfBroadeningHCl.ipynb` | Legado: usa API removida (`BroadeningProcessing`). |
