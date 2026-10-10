@@ -15,8 +15,8 @@ HITRAN cubra, contanto que os dados de linha necessários existam na base.
 Este é o único **pacote reutilizável de verdade** do monorepo LineProphet —
 ver o [README da raiz](../../README.md). Os outros dois diretórios,
 [`data_eng`](../../data_eng/README.md) e
-[`data_science`](../../data_science/README.md), não são bibliotecas: são
-scripts/notebooks que **chamam** esta biblioteca.
+[`data_science`](../../data_science/README.md), são projetos que **usam**
+esta biblioteca.
 
 ## O que dá pra fazer com isso
 
