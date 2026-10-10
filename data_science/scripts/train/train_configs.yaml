@@ -23,6 +23,25 @@ noise_std_max: 0.02
 # [-slope_max, slope_max] (absorbância), com probabilidade p
 baseline_shift: {p: 0.5, offset_max: 0.1, slope_max: 0.05}
 
+# Contaminação sintética (data augmentation): soma linhas pseudo-Voigt aleatórias só na
+# entrada, para o modelo aprender a ignorar linhas que não são da molécula. Com prob. p,
+# n_lines uniforme; com prob. cluster_p as linhas ficam agrupadas numa sub-região (banda)
+# de largura log-uniforme (cm⁻¹). Larguras HWHM (cm⁻¹) e altura relativa ao maior pico
+# do espectro são log-uniformes
+contamination:
+  p: 0.5
+  n_lines_min: 1
+  n_lines_max: 150
+  cluster_p: 0.5
+  cluster_width_min: 20
+  cluster_width_max: 200
+  lorentz_hwhm_min: 0.005
+  lorentz_hwhm_max: 0.3
+  gauss_hwhm_min: 0.003
+  gauss_hwhm_max: 0.02
+  rel_height_min: 0.01
+  rel_height_max: 1.5
+
 # Loss de treino (SpectralLoss; o teste usa sempre o MSE da absorção, para comparar configs):
 #   alpha: peso do pico, 1 + alpha * A/max(A) por espectro
 #   beta: peso da derivada (0 = desligado)

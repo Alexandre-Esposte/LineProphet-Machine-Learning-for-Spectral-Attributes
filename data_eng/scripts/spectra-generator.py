@@ -21,15 +21,15 @@ logger = logging.getLogger('spectra-generator')
 ROOT_DATABASE_PATH = Path(__file__).resolve().parents[2] / 'database'
 
 # pressao em atm
-PRESSURE_MIN = 0.001
+PRESSURE_MIN = 0.015
 PRESSURE_MAX = 1
 
 # temperatura em K
 TEMPERATURE_MIN = 273
-TEMPERATURE_MAX =  400
+TEMPERATURE_MAX =  373
 
 #caminho optico em cm
-OPTICAL_PATH_MIN = 0.1
+OPTICAL_PATH_MIN = 1
 OPTICAL_PATH_MAX = 10
 
 # Total de espectros, dividido igualmente entre as janelas e depois entre os
@@ -38,19 +38,19 @@ QTE_TOTAL = 10_000
 SPLIT_FRACTIONS = {'train': 0.8, 'valid': 0.1, 'test': 0.1}
 
 #Configs de simulacao
-STEP_MIN = 0.01
-STEP_MAX = 0.01
+STEP_MIN = 0.005
+STEP_MAX = 0.005
 # Janelas: nome -> (tabela em database/hitran_database, centro em cm⁻¹).
 # Largura fixa WINDOW_WIDTH (cm⁻¹) => todos os espectros têm o mesmo nº de pontos.
 # Centros = meio de cada banda a 400 K.
 WINDOW_WIDTH = 900
 WINDOWS = {
-    'hcl_10': ('hcl', 2818),
+    # 'hcl_10': ('hcl', 2818),
     'hcl_20': ('hcl', 5551),
-    'co_10':  ('co',  2126),
-    'co_20':  ('co',  4211),
-    'hf_10':  ('hf',  3896),
-    'hf_20':  ('hf',  7602),
+    # 'co_10':  ('co',  2126),
+    # 'co_20':  ('co',  4211),
+    # 'hf_10':  ('hf',  3896),
+    # 'hf_20':  ('hf',  7602),
 }
 # Aviso de banda cortada (ver check_windows): linha fora da janela, até
 # BAND_CUT_MARGIN cm⁻¹ da borda, com intensidade > BAND_CUT_THRESHOLD x a mais forte.
@@ -60,9 +60,12 @@ DILUENT = {'self': 1}
 
 # Configs para simular função aparelho
 CONVOLVE = False
-RESOLUTION_MIN = 0.02
-RESOLUTION_MAX = 5
+RESOLUTION_MIN = 0.01
+RESOLUTION_MAX = 0.2
 SLIT_FUNCTIONS = [SLIT_MICHELSON, SLIT_TRIANGULAR]
+
+# Tipo de experimento
+TYPE_EXPERIMENT = 'absorbance'  # 'transmittance' ou 'absorbance'
 
 # Paralelismo
 N_PROCESSES = max(1, os.cpu_count() - 1)
@@ -80,11 +83,11 @@ def sample_parameters(n: int) -> dict:
     """Sorteia `n` conjuntos de parâmetros. Pressão, caminho ótico e resolução
     são log-uniformes; temperatura e passo, uniformes."""
     return {
-        'pressure':    log_uniform(PRESSURE_MIN, PRESSURE_MAX, n),
+        'pressure':    np.random.uniform(PRESSURE_MIN, PRESSURE_MAX, n),
         'temperature': np.random.uniform(TEMPERATURE_MIN, TEMPERATURE_MAX, n),
-        'optical_path': log_uniform(OPTICAL_PATH_MIN, OPTICAL_PATH_MAX, n),
+        'optical_path':  np.random.uniform(OPTICAL_PATH_MIN, OPTICAL_PATH_MAX, n),
         'step':        np.random.uniform(STEP_MIN, STEP_MAX, n),
-        'resolution':  log_uniform(RESOLUTION_MIN, RESOLUTION_MAX, n),
+        'resolution':   np.random.uniform(RESOLUTION_MIN, RESOLUTION_MAX, n),
         'slit_function': np.random.choice(SLIT_FUNCTIONS, n),
     }
 
@@ -195,7 +198,7 @@ def simulate_and_save(window: str, split: str, index: int, pressure: float, temp
     generator.simulateSpectra(
         molecule, DILUENT,
         {'p': pressure, 'T': temperature, 'l': optical_path},
-        step=step, quantity='absorbance', convolve=CONVOLVE, resolution=resolution,
+        step=step, quantity=TYPE_EXPERIMENT, convolve=CONVOLVE, resolution=resolution,
         slit_function=slit_function, wavenumber_range=(window_min, window_max),
     )
 
@@ -229,6 +232,7 @@ def simulate_and_save(window: str, split: str, index: int, pressure: float, temp
         resolution=resolution,
         slit_function=slit_function.__name__,
         convolve=CONVOLVE,
+        quantity=TYPE_EXPERIMENT,
         diluent_gases=np.array(list(DILUENT.keys())),
         diluent_fractions=np.array(list(DILUENT.values()), dtype=float),
         wavenumber_min=float(np.min(wavenumbers)),

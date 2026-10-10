@@ -22,6 +22,22 @@ loss: {alpha: 5, beta: 0, gamma: 0}
 # [-slope_max, slope_max] (absorbância), com probabilidade p
 baseline_shift: {p: 0.5, offset_max: 0.1, slope_max: 0.05}
 
+# Contaminação sintética (data augmentation, fixa por estudo): linhas pseudo-Voigt
+# aleatórias só na entrada. Parâmetros explicados no train_configs.yaml
+contamination:
+  p: 0.5
+  n_lines_min: 1
+  n_lines_max: 150
+  cluster_p: 0.5
+  cluster_width_min: 20
+  cluster_width_max: 200
+  lorentz_hwhm_min: 0.005
+  lorentz_hwhm_max: 0.3
+  gauss_hwhm_min: 0.003
+  gauss_hwhm_max: 0.02
+  rel_height_min: 0.01
+  rel_height_max: 1.5
+
 # Canal de máscara (fixo por estudo, pois muda a entrada do modelo)
 mask_channel: true
 
