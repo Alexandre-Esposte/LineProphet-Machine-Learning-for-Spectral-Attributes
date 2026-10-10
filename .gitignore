@@ -170,3 +170,14 @@ models/
 *.header
 database/
 hitran_database/
+# Modelos, gráficos, análises e PDFs não são versionados.
+*.pt
+*.pth
+*.ckpt
+*.png
+*.jpg
+*.pdf
+trained_models/
+testes_rede/
+search_results/
+runs/
