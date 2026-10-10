@@ -1,0 +1,27 @@
+[project]
+name = "lineprophet-workspace"
+version = "0.1.0"
+description = "Monorepo LineProphet: data_eng (engenharia de dados espectrais sobre HITRAN/HAPI) e data_science (modelagem de atributos de linhas espectrais)."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ipykernel>=7.3.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*", "data_eng", "data_science"]
+
+[tool.uv.sources]
+spectra-hitran = { workspace = true }
+data-eng = { workspace = true }
+data-science = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "spectra-hitran",
+    "data-eng",
+    "data-science",
+]

@@ -1,0 +1,15 @@
+[project]
+name = "data-eng"
+version = "0.1.0"
+description = "Scripts/notebooks de engenharia de dados: baixar, simular e organizar espectros HITRAN usando a lib spectra-hitran, gerando os datasets em database/."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "spectra-hitran",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+spectra-hitran = { workspace = true }
