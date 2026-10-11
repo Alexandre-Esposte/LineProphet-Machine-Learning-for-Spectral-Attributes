@@ -27,9 +27,12 @@ uv run --package data-eng python data_eng/scripts/download_spectra.py --name hcl
 uv run --package data-eng python data_eng/scripts/spectra-generator.py
 ```
 
-A configuração do gerador (janelas, faixas de P/T/caminho ótico, `QTE_TOTAL`,
-`SPLIT_FRACTIONS`, `N_PROCESSES` etc.) fica nas constantes no topo de
-`spectra-generator.py`.
+A configuração do gerador (janelas, faixas de P/T/caminho ótico, passo, função
+do instrumento, `QTE_TOTAL`, `SPLIT_FRACTIONS`, `N_PROCESSES` etc.) fica nas
+constantes no topo de `spectra-generator.py`. A função do instrumento
+(`CONVOLVE`, `SLIT_FUNCTIONS`, `RESOLUTION_MIN/MAX`) foi ajustada nos espectros
+reais: fenda gaussiana com resolução sorteada por espectro, para a rede não
+depender da resolução do equipamento.
 
 ## Saída
 

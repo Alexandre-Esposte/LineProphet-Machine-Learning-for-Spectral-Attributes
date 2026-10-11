@@ -11,7 +11,7 @@ os.environ.setdefault('NUMEXPR_NUM_THREADS', '1')
 
 import numpy as np
 from pathlib import Path
-from hapi import SLIT_MICHELSON, SLIT_TRIANGULAR, LOCAL_TABLE_CACHE
+from hapi import SLIT_GAUSSIAN, LOCAL_TABLE_CACHE
 from SpectraHitran.SpectraGenerator.spectragenerator import SpectraGenerator
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s', datefmt='%H:%M:%S')
@@ -38,8 +38,10 @@ QTE_TOTAL = 10_000
 SPLIT_FRACTIONS = {'train': 0.8, 'valid': 0.1, 'test': 0.1}
 
 #Configs de simulacao
-STEP_MIN = 0.005
-STEP_MAX = 0.005
+# Passo < RESOLUTION_MIN (exigência do convolveSpectrum do HAPI); 0.001 dá ≥ 5 pontos
+# por largura da fenda e é da ordem do passo dos espectros reais (0.00094 e 0.00188).
+STEP_MIN = 0.001
+STEP_MAX = 0.001
 # Janelas: nome -> (tabela em database/hitran_database, centro em cm⁻¹).
 # Largura fixa WINDOW_WIDTH (cm⁻¹) => todos os espectros têm o mesmo nº de pontos.
 # Centros = meio de cada banda a 400 K.
@@ -58,11 +60,14 @@ BAND_CUT_THRESHOLD = 1e-3
 BAND_CUT_MARGIN = 100
 DILUENT = {'self': 1}
 
-# Configs para simular função aparelho
-CONVOLVE = False
-RESOLUTION_MIN = 0.01
-RESOLUTION_MAX = 0.2
-SLIT_FUNCTIONS = [SLIT_MICHELSON, SLIT_TRIANGULAR]
+# Configs para simular função aparelho (resolução = FWHM da gaussiana, em cm⁻¹).
+# Ajustadas nos espectros reais: a gaussiana (espectro apodizado) ajusta melhor que o
+# Michelson; resolução ~0.025–0.03 nos reais de 40/42 °C e ≲ 0.01 nos de 20 °C.
+# A faixa cobre os dois, para a rede não depender da resolução.
+CONVOLVE = True
+RESOLUTION_MIN = 0.005
+RESOLUTION_MAX = 0.04
+SLIT_FUNCTIONS = [SLIT_GAUSSIAN]
 
 # Tipo de experimento
 TYPE_EXPERIMENT = 'absorbance'  # 'transmittance' ou 'absorbance'
@@ -80,8 +85,7 @@ def log_uniform(low: float, high: float, n: int) -> np.ndarray:
 
 
 def sample_parameters(n: int) -> dict:
-    """Sorteia `n` conjuntos de parâmetros. Pressão, caminho ótico e resolução
-    são log-uniformes; temperatura e passo, uniformes."""
+    """Sorteia `n` conjuntos de parâmetros, todos uniformes nas suas faixas."""
     return {
         'pressure':    np.random.uniform(PRESSURE_MIN, PRESSURE_MAX, n),
         'temperature': np.random.uniform(TEMPERATURE_MIN, TEMPERATURE_MAX, n),
