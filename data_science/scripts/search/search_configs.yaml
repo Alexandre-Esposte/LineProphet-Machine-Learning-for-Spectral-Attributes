@@ -68,8 +68,8 @@ search_space:
   # Máscara (só usada com mask_channel: true). Não busque mask_p: a loss de
   # teste não tem lacunas, então mask_p: 0 sempre ganharia
   mask_p: 0.5
-  mask_min_size: 500
-  mask_max_size: 2000
+  mask_min_size: 2500
+  mask_max_size: 10000
   mask_n_windows: 2
   pooling_output_size: {type: categorical, choices: [1024, 2048, 4096, 8192]}
 

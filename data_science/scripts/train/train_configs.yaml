@@ -52,9 +52,9 @@ loss: {alpha: 5, delta: 0}
 # precisa de in_channels: 3. mask_p: 0 mantém o canal (sempre zero) sem mascarar
 mask_channel: true
 mask_p: 0.5
-# Tamanho das janelas em pontos (~0.01 cm-1 por ponto; linhas do HCl a ~2000 pontos)
-mask_min_size: 500
-mask_max_size: 2000
+# Tamanho das janelas em pontos (passo de 0.001 cm-1: 2.5–10 cm-1; linhas do HCl a ~20 cm-1)
+mask_min_size: 2500
+mask_max_size: 10000
 mask_n_windows: 2
 
 # Arquitetura do modelo => (in_channels, out_channels, kernel_size_max_pooling, kernel_size_conv, num_layers)
